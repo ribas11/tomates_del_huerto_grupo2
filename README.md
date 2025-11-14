@@ -1,3 +1,11 @@
+# 🛰️ Satellite-Ground Station Communication System
+
+Sistema de comunicación entre satélite y estación de tierra con adquisición de datos de temperatura y humedad en tiempo real.
+
+![Grupo 2](imagendelgrupo2superrealista100x100realnofake.jpg)
+
+---
+
 ## 📋 Descripción
 
 Proyecto IoT que implementa una comunicación bidireccional entre dos Arduino mediante comunicación serial:
