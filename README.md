@@ -48,6 +48,6 @@ Proyecto IoT que implementa una comunicación bidireccional entre dos Arduino me
 
 ## 📝 Notas Importantes
 
-- La interfaz Python requiere ajustar el puerto COM (`COM5` por defecto)
+- La interfaz Python requiere ajustar el puerto COM a la estación de tierra (`COM5` por defecto)
 - Python requiere: pip install pyserial matplotlib
 - Arduino requiere: Libreria: DHT.h
