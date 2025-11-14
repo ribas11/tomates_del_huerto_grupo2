@@ -24,6 +24,16 @@ long nextServoMotor;
 int angulo = 0;         // Posición inicial del servo en grados
 int paso = 2;           // Cantidad de grados que el servo se moverá en cada iteración (40ms)
 
+// MEDIA DE TEMPERATURA
+bool calcularMtemperatura = true; // Controlar si es calcula la temperatura
+int i = 0;                    // Indice para el vector de sumadatosT
+bool contadatosT = false;           // Contador del numero de datos de temperatura enviados 
+double sumadatosT[10];         // Suma de datos
+double SumadatosFT;            // Suma de datos finales de temperatura del vector sumadatosT
+double mediaT = 0;            // Media de la temperatura
+const int Tmax = 32;          // Tempertura maxima que no volem superar
+int Tmaxsobrepasada = 0;      // La temperatura màxima ha sigut  sobrepasada
+
 void setup(){
   Serial.begin(9600);
   Serial.println("Empezamos la recepción");
@@ -72,6 +82,12 @@ void loop(){
       if (orden == "parar"){
         enviardatos = false;
       }
+      if (orden == "MediaSAT"){ //Orden para calcuar media de temperatura
+        calcularMtemperatura = true;
+      }
+      if (orden == "MediaTER"){ //Orden para calcuar media de temperatura
+        calcularMtemperatura = false;
+      }
     }
     
     if (codigo == 4){                     // Código 4: Cambiar período
@@ -103,6 +119,32 @@ void loop(){
       mySerial.print(temp);
       mySerial.print(":");
       mySerial.println(hum);
+      if (calcularMtemperatura == true){
+        sumadatosT[i] = temp;
+        i=i+1;
+        if(i == 10){
+          i=0;
+          contadatosT = true;
+        }
+        if (contadatosT==true) {
+          for(int a =0; a<10; a++){
+            SumadatosFT=SumadatosFT+sumadatosT[a];
+          }
+          mediaT = SumadatosFT/10;
+          // Temperatura max superada ?
+          if (mediaT < Tmax){ 
+          Tmaxsobrepasada = 0;
+          }
+          else {
+            Tmaxsobrepasada = 1;
+          }
+          // Envia media de temperatura
+          mySerial.print("4:"); 
+          mySerial.print(mediaT);
+          mySerial.print(":");
+          mySerial.println(Tmaxsobrepasada);        
+        }
+      }
     }
   }
   else if ((millis() >= nextMillis2) && (fallodatos == true)){
