@@ -1,6 +1,7 @@
 #include <SoftwareSerial.h>
 
 int i;
+bool MediaTER = false;
 SoftwareSerial mySerial(10, 11); // RX, TX
 long nextMillis1; 
 long nextMillis2; 
@@ -12,7 +13,19 @@ const int interval3 = 7000; // Timeout de error
 const int intervalLED = 1000; // LEDs encendidos 
 const int LedEarth = 2; 
 const int LedComms = 7; 
-const int LedErrorDatos = 4; 
+const int LedErrorDatos = 4;
+
+// MEDIA DE TEMPERATURA
+bool calcularmedia = true;
+int j = 0;                    // Indice para el vector de sumadatosT
+bool contdatosT = false;      // Contador del numero de datos de temperatura enviados 
+double sumadatosT[10];         // Suma de datos
+double sumadatosFT;           // Suma de datos finales de temperatura del vector sumadatosT
+double mediaT = 0;            // Media de la temperatura
+const int Tmax = 32;          // Tempertura maxima que no volem superar
+int Tmaxsobrepasada = 0;      // La temperatura màxima ha sigut  sobrepasada
+double temp;
+char info[5];
 
 void setup() {
   Serial.begin(9600);
@@ -36,7 +49,13 @@ void loop() {
   if(Serial.available()) {
     String orden = Serial.readStringUntil('\n');
 
-    if (orden[0] == '4'){             // Código 4: Cambiar periodo
+    if (orden[0] == '3'){ 
+      if(orden[5] == "MediaTER")      // 3:MediaTER (Se calcula la media en la estacion de tierra)
+        MediaTER == true;
+      else if (orden == "MediaSAT")   // 3:MediaSAT (Se calcula la media en el satelite)
+        MediaTER == false;
+    }
+    else if (orden[0] == '4'){             // Código 4: Cambiar periodo
       int inicio = orden.indexOf(':', 0) + 1;
       int fin = orden.indexOf('\n', inicio);
       if (fin == -1) fin = orden.length();
@@ -78,9 +97,34 @@ void loop() {
     }
     else if (mensaje[0] == '1'){
       digitalWrite(LedErrorDatos, LOW);
+      if(MediaTER == true){
+        int ini = mensaje.indexOf(':', 0) + 1;
+        int fini = mensaje.indexOf(':', ini);
+        for (int b = 0; b <= fini-ini; b++){
+          info[b] = mensaje[ini + b];
+        }
+        temp = int(info);
+        sumadatosT[j] = temp;
+        j = j +1;
+        if(j == 10){
+          j = 0;
+          contdatosT = true;
+        }
+        if (contdatosT == true) {
+          for(int a = 0; a<10; a++){
+            sumadatosFT = sumadatosFT + sumadatosT[a];
+          }
+          mediaT = sumadatosFT/10;
+          if (mediaT < Tmax){     // Temperatura max superada ?
+            Tmaxsobrepasada = 0;
+          }
+          else {
+            Tmaxsobrepasada = 1;
+          }
+        }
+      }
     }
   }
-  
   else if (millis() >= nextMillis3){
     digitalWrite(LedComms, HIGH); // Error de comunicaciones descubierto
     Serial.println("0:ErrorComunicaciones");
