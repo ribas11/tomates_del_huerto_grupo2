@@ -17,6 +17,12 @@ DHT dht(DHTPIN, DHTTYPE);
 const int LedSat = 4; // Envia datos
 const int LedDatos = 7; // Error de datos
 
+#include <Servo.h>     
+Servo myServo;         
+const long intervalServoMotor = 40; // Cada 40ms cambia el ángulo
+long nextServoMotor;    
+int angulo = 0;         // Posición inicial del servo en grados
+int paso = 2;           // Cantidad de grados que el servo se moverá en cada iteración (40ms)
 
 void setup(){
   Serial.begin(9600);
@@ -33,6 +39,9 @@ void setup(){
   nextMillis = millis() + interval;
   nextMillis2 = millis() + interval2;
   nextMillisLED = millis();
+
+  myServo.attach(3);         
+  nextServoMotor = millis() + intervalServoMotor;
 }
 
 void loop(){
@@ -99,5 +108,15 @@ void loop(){
   else if ((millis() >= nextMillis2) && (fallodatos == true)){
     digitalWrite(LedDatos, HIGH); // Enciende LED de error
     mySerial.println("0:ErrorCapturaDatos");
+  }
+
+  if (millis() >= nextServoMotor) {
+    nextServoMotor = millis() + intervalServoMotor;
+    myServo.write(angulo);
+    angulo = angulo + paso;
+
+    if (angulo >= 180 || angulo <= 0) {
+      paso = -paso; // Cambiamos el signo del paso para invertir el movimiento
+    }
   }
 }
