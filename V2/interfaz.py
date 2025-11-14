@@ -17,13 +17,14 @@ ax.set_xlim(0, 100)
 ax.set_ylim(20, 40)
 ax.set_title('Grafica dinamica Temperatura[ºC] - temps[s]:')
 
+mediaT = None #Variable de la media de la temperatura
+
 temperaturas = []
 eje_x = []
 i = 0
 parar = True  # Empieza parado
 threadRecepcion = None
 periodoTH = 3
-
 
 def recepcion():
     global i, parar, temperaturas, eje_x, mySerial, periodoTH
@@ -49,6 +50,15 @@ def recepcion():
                     print(f"Error lectura temperatura: {trozos[1]}")
             if trozos[0] == '0':
                 print(f"Error del sistema: {trozos[1]}")
+            if trozos[0] == '4':
+                try:
+                    media = float(trozos[1])
+                    mediaLabel.config(text=f"Media T: {media:.2f} °C")
+                    print(f"Media recibida: {media:.2f}°C")
+                except:
+                    print("Error al leer media")
+
+
 
 
 def InicioClick():
@@ -120,7 +130,16 @@ def EnviarPeriodoClick(): # SOLUCIONAR QUE NO VA A MES DE 3 SEGONS
     periodoTH = int(periodo_sensor/1000)
     messagebox.showinfo("Éxito", f"Período configurado a {periodo_sensor} ms")  
         
+def CalcularMediaTSat():
+    mensaje = "3:MediaSAT\n"
+    mySerial.write(mensaje.encode('utf-8'))
+    mediaLabel.config(text="Media T: (calculando...)")
 
+
+def CalcularMediaTTER():
+    mensaje = "3:MediaTER\n"
+    mySerial.write(mensaje.encode('utf-8'))
+    mediaLabel.config(text="Media T: (calculando...)")
 
 
 # ===== VENTANA PRINCIPAL =====
@@ -129,6 +148,7 @@ window.geometry("900x450")
 window.rowconfigure(0, weight=1)
 window.rowconfigure(1, weight=1)
 window.rowconfigure(2, weight=1)  
+window.rowconfigure(3, weight=1)
 window.columnconfigure(0, weight=1)
 window.columnconfigure(1, weight=1)
 window.columnconfigure(2, weight=1)
@@ -140,7 +160,7 @@ tituloLabel = Label(window, text="Versión 1 \n Control de Sensor", font=("Couri
 tituloLabel.grid(row=0, column=0, columnspan=3, padx=3, pady=3, sticky=N + S + E + W)
 
 
-# Botones de control (Inicio, Parar, Reanudar)
+# Botones de control (Inicio, Parar, Reanudar, cambiar donde calcula T)
 InicioButton = Button(window, text="Inicio", bg='green', fg="white", command=InicioClick)
 InicioButton.grid(row=1, column=0, padx=1, pady=1, sticky=N + S + E + W)
 
@@ -149,6 +169,17 @@ PararButton.grid(row=1, column=1, padx=1, pady=1, sticky=N + S + E + W)
 
 ReanudarButton = Button(window, text="Reanudar", bg='orange', fg="white", command=ReanudarClick)
 ReanudarButton.grid(row=1, column=2, padx=1, pady=1, sticky=N + S + E + W)
+
+#Etiquitas para ver en tiempo real la media de temperatura
+mediaLabel = Label(window, text="Media T: --- °C", font=("Courier", 14), fg="blue")
+mediaLabel.grid(row=3, column=2, padx=5, pady=5, sticky=N + S + E + W)
+
+
+ModoButton = Button(window, text="Media temperatura Satelite", bg='purple', fg='white', command=CalcularMediaTSat)
+ModoButton.grid(row=3, column=0, padx=1, pady=1, sticky=N + S + E + W)
+
+ModoButton = Button(window, text="Media temperatura Estación Tierra", bg='purple', fg='white', command=CalcularMediaTTER)
+ModoButton.grid(row=3, column=1, padx=1, pady=1, sticky=N + S + E + W)
 
 
 # PERIODO

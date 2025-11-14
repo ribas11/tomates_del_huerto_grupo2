@@ -192,14 +192,15 @@ void loop(){
     if (duracionSensor > 0) { // Si ha llegado el pulso en el tiempo establecido
       distanciaSensor = duracionSensor * 0.034 / 2; // Distancia = tiempo * velocidad del sonido / 2
       
-      mySerial.print("2:"); // Envia 2:distancia:angulo
-      mySerial.print(distanciaSensor);
-      mySerial.print(":");
-      mySerial.println(angulo);
+      Serial.print("2"); // Envia 2:distancia:angulo
+      Serial.print(":");
+      Serial.print(distanciaSensor);
+      Serial.print(":");
+      Serial.println(angulo);
     } 
     else { // Si no se ha detectado la llegada del pulso
       distanciaSensor = 0; // El 0 para nosotros indica error
-      mySerial.println("0:sensor");
+      mySerial.println(" :sensor");
     }
   }
 }
