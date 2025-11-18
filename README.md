@@ -1,3 +1,13 @@
+# 🛰️ BIENVENIDO AL MEJOR PROYECTO JAMAS VISTO!
+
+![Grupo 2](imagendelgrupo2superrealista100x100realnofake.jpg)
+
+## Videos explicativos
+- Versión 1: https://youtu.be/9xndj4gOBC0
+- Versión 2: https://youtu.be/yomSmsEQIq0
+
+---
+
 ## 📋 Descripción
 
 Proyecto IoT que implementa una comunicación bidireccional entre dos Arduino mediante comunicación serial:
@@ -42,6 +52,6 @@ Proyecto IoT que implementa una comunicación bidireccional entre dos Arduino me
 
 ## 📝 Notas Importantes
 
-- La interfaz Python requiere ajustar el puerto COM (`COM5` por defecto)
+- La interfaz Python requiere ajustar el puerto COM a la estación de tierra (`COM5` por defecto)
 - Python requiere: pip install pyserial matplotlib
 - Arduino requiere: Libreria: DHT.h

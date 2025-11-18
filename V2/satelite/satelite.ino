@@ -1,3 +1,4 @@
+//CONEXIONES E INTERVALOS BASE
 #include <SoftwareSerial.h>
 SoftwareSerial mySerial(10, 11); // RX, TX (azul, naranja)
 bool enviardatos = true; 
@@ -17,6 +18,31 @@ DHT dht(DHTPIN, DHTTYPE);
 const int LedSat = 4; // Envia datos
 const int LedDatos = 7; // Error de datos
 
+//SERVOMOTOR
+#include <Servo.h>     
+Servo myServo;         
+const long intervalServoMotor = 40; // Cada 40ms cambia el ángulo
+long nextServoMotor;    
+int angulo = 0;         // Posición inicial del servo en grados
+int paso = 2;           // Cantidad de grados que el servo se moverá en cada iteración (40ms)
+
+// SENSOR DE DISTANCIA ULTRASONIDOS
+const int trigPin = 9; 
+const int echoPin = 6; 
+long nextSensor; 
+const long intervalSensor = 500; // Cada cuanto lee la distancia
+long duracionSensor; 
+long distanciaSensor; 
+
+// MEDIA DE TEMPERATURA
+bool calcularMtemperatura = true; // Controlar si es calcula la temperatura
+int i = 0;                    // Indice para el vector de sumadatosT
+bool contadatosT = false;           // Contador del numero de datos de temperatura enviados 
+double sumadatosT[10];         // Suma de datos
+double SumadatosFT;            // Suma de datos finales de temperatura del vector sumadatosT
+double mediaT = 0;            // Media de la temperatura
+const int Tmax = 32;          // Tempertura maxima que no volem superar
+int Tmaxsobrepasada = 0;      // La temperatura màxima ha sigut  sobrepasada
 
 void setup(){
   Serial.begin(9600);
@@ -33,6 +59,13 @@ void setup(){
   nextMillis = millis() + interval;
   nextMillis2 = millis() + interval2;
   nextMillisLED = millis();
+
+  myServo.attach(3);         
+  nextServoMotor = millis() + intervalServoMotor;
+
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+  nextSensor = millis() + intervalSensor;
 }
 
 void loop(){
@@ -62,6 +95,12 @@ void loop(){
       }
       if (orden == "parar"){
         enviardatos = false;
+      }
+      if (orden == "MediaSAT"){ //Orden para calcuar media de temperatura
+        calcularMtemperatura = true;
+      }
+      if (orden == "MediaTER"){ //Orden para calcuar media de temperatura
+        calcularMtemperatura = false;
       }
     }
     
@@ -94,10 +133,74 @@ void loop(){
       mySerial.print(temp);
       mySerial.print(":");
       mySerial.println(hum);
+      if (calcularMtemperatura == true){
+        sumadatosT[i] = temp;
+        i=i+1;
+        if(i == 10){
+          i=0;
+          contadatosT = true;
+        }
+        if (contadatosT==true) {
+          for(int a =0; a<10; a++){
+            SumadatosFT=SumadatosFT+sumadatosT[a];
+          }
+          mediaT = SumadatosFT/10;
+          // Temperatura max superada ?
+          if (mediaT < Tmax){ 
+          Tmaxsobrepasada = 0;
+          }
+          else {
+            Tmaxsobrepasada = 1;
+          }
+          // Envia media de temperatura
+          mySerial.print("4:"); 
+          mySerial.print(mediaT);
+          mySerial.print(":");
+          mySerial.println(Tmaxsobrepasada);        
+        }
+      }
     }
   }
   else if ((millis() >= nextMillis2) && (fallodatos == true)){
     digitalWrite(LedDatos, HIGH); // Enciende LED de error
     mySerial.println("0:ErrorCapturaDatos");
+  }
+
+  if (millis() >= nextServoMotor) {
+    nextServoMotor = millis() + intervalServoMotor;
+    myServo.write(angulo);
+    angulo = angulo + paso;
+
+    if (angulo >= 180 || angulo <= 0) {
+      paso = -paso; // Cambiamos el signo del paso para invertir el movimiento
+    }
+  }
+
+  //ULTRASONIDOS
+  if (millis() >= nextSensor) {
+    nextSensor = millis() + intervalSensor;
+    
+    digitalWrite(trigPin, LOW); // Aseguramos que el TRIG esté en LOW antes de enviar el pulso
+    delayMicroseconds(2); // Creo que es necesario para estabilizar el pin
+    digitalWrite(trigPin, HIGH); // Enviamos pulso HIGH
+    delayMicroseconds(10); // También necesario para estabilizar el pin
+    digitalWrite(trigPin, LOW); // Dejamos de enviar el pulso
+    
+    duracionSensor = pulseIn(echoPin, HIGH, 30000); // Medimos el tiempo que tarda el pulso en volver
+    // 30000 es el timeout, hace que deje de esperar al pulso si pasan 30ms y no ha llegado nada aún
+    
+    if (duracionSensor > 0) { // Si ha llegado el pulso en el tiempo establecido
+      distanciaSensor = duracionSensor * 0.034 / 2; // Distancia = tiempo * velocidad del sonido / 2
+      
+      Serial.print("2"); // Envia 2:distancia:angulo
+      Serial.print(":");
+      Serial.print(distanciaSensor);
+      Serial.print(":");
+      Serial.println(angulo);
+    } 
+    else { // Si no se ha detectado la llegada del pulso
+      distanciaSensor = 0; // El 0 para nosotros indica error
+      mySerial.println(" :sensor");
+    }
   }
 }
