@@ -69,7 +69,7 @@ void loop() {
     }
   }
   
-  if (millis() >= nextMillisLED){
+  if (millis() >= nextMillis2){
     digitalWrite(LedEarth, LOW);
   }
   
@@ -81,21 +81,21 @@ void loop() {
     Serial.println(i);
   }
   
-  if (mySerial.available()) {       // Recibir datos del satélite
-    digitalWrite(LedEarth, HIGH); 
-    nextMillisLED = millis() + intervalLED; 
-    
+  if (mySerial.available()) {       //Recibir datos del satélite
     digitalWrite(LedComms, LOW); 
     nextMillis3 = millis() + interval3; 
     
     String mensaje = mySerial.readStringUntil('\n');
-    Serial.print(mensaje);
+    Serial.print(mensaje + "\n");
     
     if (mensaje[0] == '0'){
       digitalWrite(LedErrorDatos, HIGH); // Error en captura de datos del satélite
       Serial.println(" - Error de datos del satélite");
     }
     else if (mensaje[0] == '1'){
+      digitalWrite(LedEarth, HIGH);
+      nextMillis2 = millis() + interval2; //Para que se apague luego
+
       digitalWrite(LedErrorDatos, LOW);
       if(MediaTER == true){
         int ini = mensaje.indexOf(':', 0) + 1;

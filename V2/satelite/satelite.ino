@@ -33,6 +33,8 @@ long nextSensor;
 const long intervalSensor = 500; // Cada cuanto lee la distancia
 long duracionSensor; 
 long distanciaSensor; 
+int joyX = 0; //Pin analogo al que el joystick X está conectado
+int joyY = 1; //Pin analogo al que el joystick Y está conectado
 
 // MEDIA DE TEMPERATURA
 bool calcularMtemperatura = true; // Controlar si es calcula la temperatura
@@ -43,6 +45,7 @@ double SumadatosFT;            // Suma de datos finales de temperatura del vecto
 double mediaT = 0;            // Media de la temperatura
 const int Tmax = 32;          // Tempertura maxima que no volem superar
 int Tmaxsobrepasada = 0;      // La temperatura màxima ha sigut  sobrepasada
+bool modoAutomatico = true;
 
 void setup(){
   Serial.begin(9600);
@@ -102,6 +105,21 @@ void loop(){
       if (orden == "MediaTER"){ //Orden para calcuar media de temperatura
         calcularMtemperatura = false;
       }
+      if (orden.startsWith("RadarAutomatico")){
+        modoAutomatico = false;
+        int segundoNum = orden.indexOf(':');
+        if (segundoNum > 0) {
+          int valor = orden.substring(segundoNum + 1).toInt();
+          valor = constrain(valor, 0, 180);
+          myServo.write(valor);
+          Serial.print("Radar manual con valor: ");
+          Serial.println(valor);
+        
+      }
+      if (orden == "RadarAutomatico"){
+        modoAutomatico = true;
+        }
+      }
     }
     
     if (codigo == 4){                     // Código 4: Cambiar período
@@ -118,10 +136,10 @@ void loop(){
   if (enviardatos == true && millis() >= nextMillis){
     digitalWrite(LedSat, HIGH); // Enciende LED de envío
     nextMillisLED = millis() + intervalLED; // LED se apagará 
-    nextMillis = millis() + interval; // Reinicia temporizador envio
     
     float hum = dht.readHumidity();
     float temp = dht.readTemperature();
+    nextMillis += interval; // Reinicia temporizador envio
     if ((isnan(hum) || isnan(temp)) && (fallodatos == false)){ // Empieza a no captar datos
       nextMillis2 = millis() + interval2;
       fallodatos = true;
@@ -133,6 +151,7 @@ void loop(){
       mySerial.print(temp);
       mySerial.print(":");
       mySerial.println(hum);
+      
       if (calcularMtemperatura == true){
         sumadatosT[i] = temp;
         i=i+1;
@@ -141,6 +160,7 @@ void loop(){
           contadatosT = true;
         }
         if (contadatosT==true) {
+          SumadatosFT = 0;
           for(int a =0; a<10; a++){
             SumadatosFT=SumadatosFT+sumadatosT[a];
           }
@@ -156,7 +176,7 @@ void loop(){
           mySerial.print("4:"); 
           mySerial.print(mediaT);
           mySerial.print(":");
-          mySerial.println(Tmaxsobrepasada);        
+          mySerial.println(Tmaxsobrepasada); 
         }
       }
     }
@@ -192,14 +212,15 @@ void loop(){
     if (duracionSensor > 0) { // Si ha llegado el pulso en el tiempo establecido
       distanciaSensor = duracionSensor * 0.034 / 2; // Distancia = tiempo * velocidad del sonido / 2
       
-      mySerial.print("2:"); // Envia 2:distancia:angulo
+      mySerial.print("2"); // Envia 2:distancia:angulo
+      mySerial.print(":");
       mySerial.print(distanciaSensor);
       mySerial.print(":");
       mySerial.println(angulo);
     } 
     else { // Si no se ha detectado la llegada del pulso
       distanciaSensor = 0; // El 0 para nosotros indica error
-      mySerial.println("0:sensor");
+      mySerial.println(" :sensor");
     }
   }
 }
