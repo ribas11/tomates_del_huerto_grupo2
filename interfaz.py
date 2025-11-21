@@ -24,7 +24,7 @@ import datetime
 #     print("⚠ No se encontró el puerto COM5. Ejecutando en modo SIMULACIÓN.")
    
 #     class SerialFake:
-#         def __init__(self):
+#         def _init_(self):
 #             self.in_waiting = 0
 #         def readline(self):
 #             return b""
@@ -66,9 +66,13 @@ periodoTH = 3
 temperaturas_medias = []
 mensaje = ""  
 
-
-
-# Función auxiliar para registrar eventos en archivos
+# ==== FICHEROS DE EVENTOS ====
+def limpiar_archivos():
+    archivos = ["comandos.txt", "alarmas.txt", "registrotemphum.txt", "observaciones.txt"]
+    for archivo in archivos:
+        with open(archivo, "w") as f:  
+            f.write("")  
+limpiar_archivos()
 def registrar_evento(tipo_comando, detalles=""):
     ahora = datetime.datetime.now()
     fecha_hora = ahora.strftime("%d-%m-%Y %H:%M:%S")
@@ -416,11 +420,6 @@ def CalcularMediaTSat():
     mediaLabel.config(text="Media T: \n(calculando...)")
     calculomediaLabel.config(text="Calculando media en:\n Satélite")
     registrar_evento("comando", "MediaSAT")
-
-
-
-
-
 def CalcularMediaTTER():
     global mensaje
     mensaje = "3:MediaTER\n"
@@ -429,7 +428,10 @@ def CalcularMediaTTER():
     calculomediaLabel.config(text="Calculando media en:\n Estación Tierra")
     registrar_evento("comando", "MediaTER")
 
-
+def InicioClickRad():
+    global i
+def PararClickRad():
+    global i
 
 def RadarManual():
     global modo_manual, mensaje
@@ -460,72 +462,74 @@ window.rowconfigure(2, weight=1)
 window.rowconfigure(3, weight=1)
 window.rowconfigure(4, weight=1)
 window.rowconfigure(5, weight=1)
+window.rowconfigure(6, weight=1)
 window.columnconfigure(0, weight=1)
 window.columnconfigure(1, weight=1)
 window.columnconfigure(2, weight=1)
 window.columnconfigure(3, weight=2)
 window.columnconfigure(4, weight=2)
 
-
-
 #TITULO
 tituloFrame = Frame(window, width=400, height=120) #Creamos frame con tamaño fijo, donde irá el label
 tituloFrame.grid(row=0, column=0, columnspan=3, padx=3, pady=3)
 tituloFrame.grid_propagate(False)   #Evitamos que el tamaño cambie por el contenido
 
-
-
 # Label dentro del frame (puede tener la letra grande sin expandir nada)
 tituloLabel = Label(tituloFrame, text="Versión 1 \n Control de Sensor", font=("Courier", 40, "italic"))
 tituloLabel.pack(expand=True, fill="both")
 
+ControlRadarFrame = tk.LabelFrame(window, text="Controlar radar", font=("Courier", 11, "bold"))
+ControlRadarFrame.grid(row=2, column=0, columnspan=3, padx=3, pady=3, sticky=N + S + E + W)
 
+#-------------BOTONES TEMPERATURA-----------------
 
+BotonesTemperatura = tk.LabelFrame(window, text="BOTONES TEMPERATURA", font=("Courier", 17, "bold"))
+BotonesTemperatura.grid(row=1, column=0, columnspan=3, padx=3, pady=3, sticky=N + S + E + W)
 
-
-
+BotonesTemperatura.grid_rowconfigure(0, weight=1)
+BotonesTemperatura.grid_columnconfigure(0, weight=1)
+BotonesTemperatura.grid_columnconfigure(1, weight=1)
+BotonesTemperatura.grid_columnconfigure(2, weight=1)
 
 # Botones de control (Inicio, Parar, Reanudar, cambiar donde calcula T)
-InicioButton = Button(window, text="Inicio", bg='green', fg="white",font=("Arial",20), command=InicioClick)
-InicioButton.grid(row=1, column=0, padx=1, pady=1, sticky=N + S + E + W)
+InicioButtonTemp = Button(BotonesTemperatura, text="Inicio", bg='green', fg="white",font=("Arial",20), command=InicioClick)
+InicioButtonTemp.grid(row=0, column=0, padx=1, pady=1, sticky=N + S + E + W)
 
+PararButtonTemp = Button(BotonesTemperatura, text="Parar", bg='red', fg="white", font=("Arial",20), command=PararClick)
+PararButtonTemp.grid(row=0, column=1, padx=1, pady=1, sticky=N + S + E + W)
+ReanudarButtonTemp = Button(BotonesTemperatura, text="Reanudar", bg='orange', fg="white", font=("Arial",20), command=ReanudarClick)
+ReanudarButtonTemp.grid(row=0, column=2, padx=1, pady=1, sticky=N + S + E + W)
 
+#-------------BOTONES RADAR-----------------
 
-PararButton = Button(window, text="Parar", bg='red', fg="white", font=("Arial",20), command=PararClick)
-PararButton.grid(row=1, column=1, padx=1, pady=1, sticky=N + S + E + W)
+BotonesRadar = tk.LabelFrame(window, text="BOTONES RADAR", font=("Courier", 17, "bold"))
+BotonesRadar.grid(row=4, column=0, columnspan=3, padx=3, pady=3, sticky=N + S + E + W)
 
+BotonesRadar.grid_rowconfigure(0, weight=1)
+BotonesRadar.grid_columnconfigure(0, weight=1)
+BotonesRadar.grid_columnconfigure(1, weight=1)
 
+InicioButtonRad = Button(BotonesRadar, text="Inicio", bg='green', fg="white",font=("Arial",20), command=InicioClickRad)
+InicioButtonRad.grid(row=0, column=0, padx=1, pady=1, sticky=N + S + E + W)
 
-ReanudarButton = Button(window, text="Reanudar", bg='orange', fg="white", font=("Arial",20), command=ReanudarClick)
-ReanudarButton.grid(row=1, column=2, padx=1, pady=1, sticky=N + S + E + W)
-
-
+PararButtonRad = Button(BotonesRadar, text="Parar", bg='red', fg="white", font=("Arial",20), command=PararClickRad)
+PararButtonRad.grid(row=0, column=1, padx=1, pady=1, sticky=N + S + E + W)
 
 #Etiquitas para ver en tiempo real la media de temperatura
 mediaLabel = Label(window, text="Media T: --- °C", font=("Courier", 18), fg="blue")
-mediaLabel.grid(row=3, column=2, padx=5, pady=5, sticky=N + S + E + W)
-
-
+mediaLabel.grid(row=3, column=2, padx=5, pady=5, ipady=30, sticky=N + E + W)
 
 calculomediaLabel = Label(window, text="Calculando media en:\n ---", font=("Courier", 15), fg="black")
-calculomediaLabel.grid(row=4, column=2, padx=5, pady=5, sticky=N + S + E + W)
-
-
+calculomediaLabel.grid(row=3, column=2, padx=5, pady=5, ipady=30,sticky=S + E + W)
 
 ModoButton = Button(window, text="Calcular media \ntemperatura \nen Satélite", bg='purple', fg='white', font=("Arial",20), width=13, command=CalcularMediaTSat)
-ModoButton.grid(row=3, column=0, rowspan=2, padx=1, pady=1, sticky=N + S + E + W)
-
-
+ModoButton.grid(row=3, column=0, rowspan=1, padx=1, pady=1, sticky=N + S + E + W)
 
 ModoButton = Button(window, text="Calcular media \ntemperatura \nen Estación Tierra", bg='purple', fg='white', font=("Arial",20), width=13,command=CalcularMediaTTER)
-ModoButton.grid(row=3, column=1, rowspan=2, padx=1, pady=1, sticky=N + S + E + W)
-
-
-
-
+ModoButton.grid(row=3, column=1, rowspan=1, padx=1, pady=1, sticky=N + S + E + W)
 
 # PERIODO
-periodoFrame = tk.LabelFrame(window, text="Configuración del Período (ms)", font=("Courier", 11, "bold"))
+periodoFrame = tk.LabelFrame(window, text="Configuración del Período (ms)", font=("Courier", 14, "bold"))
 periodoFrame.grid(row=2, column=0, columnspan=3, padx=3, pady=3, sticky=N + S + E + W)
 # Etiqueta
 periodoLabel = Label(periodoFrame, text="Período (milisegundos):", font=("Courier", 10))
@@ -542,37 +546,22 @@ infoLabel = Label(periodoFrame, text="(Ej: 1000 ms = 1 segundo)", font=("Courier
 infoLabel.pack(side=LEFT, padx=5, pady=5)
 
 
-
-
-
 ControlRadarFrame = tk.LabelFrame(window, text="Control Radar", font=("Courier", 11, "bold"))
 ControlRadarFrame.grid(row=5, column=3,columnspan=3, padx=3, pady=3, sticky=N + S + E + W)
 ControlRadarFrame.columnconfigure(0, weight=1) #Dentro del frame hacemos 2 columnas y 1 fila
 ControlRadarFrame.columnconfigure(1, weight=1)
 ControlRadarFrame.rowconfigure(0, weight=1)
 
-
-
 valor_servo = tk.IntVar(value=90)  # Valor inicial en 90 grados
 control_deslizante = tk.Scale(ControlRadarFrame, from_=0, to=180, orient=tk.HORIZONTAL, resolution=1, variable=valor_servo, length=200, command=EnviarServo) # Configuramos el control deslizante para que vaya de 0 a 180, con una resolución de 1 y lo orientamos horizontalmente
 
-
-
 control_deslizante.grid(row=0, column=0, rowspan=1, padx=5, pady=5, sticky=N + S + E + W) #Dentro del frame lo ponemos en la fila 0, columna 0
-
-
 
 ModoAutomatico = Button(ControlRadarFrame, text="Radar\nAutomático", bg='blue', fg="white", command=ModoAutomaticoClick)
 ModoAutomatico.grid(row=1, column=0,padx=5, pady=5, sticky=N + S + E + W)
 
-
-
 ModoManual = Button(ControlRadarFrame, text="Radar\nManual", bg='orange', fg="white", command=RadarManual)
 ModoManual.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
-
-
-
-
 
 
 
@@ -580,32 +569,19 @@ ModoManual.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
 graph_frame = tk.LabelFrame(window, text="Grafica temperatura en viu", font=("Courier", 15, "italic"))
 graph_frame.grid(row=0, column=3, rowspan=2, columnspan=2,padx=1, pady=1, sticky=N+S+E+W)
 
-
-
 radar_frame = tk.LabelFrame(window, text="Radar satélite", font=("Courier", 15, "italic"))
 radar_frame.grid(row=2, column=3, rowspan=3,columnspan=2,padx=1, pady=1, sticky=N+S+E+W)
 
-
-
-radar_canvas = Canvas(radar_frame, width=400, height=300, bg='lightgreen')
+radar_canvas = Canvas(radar_frame, width=400, height=300, bg='green')
 radar_canvas.pack(fill=tk.BOTH, expand=True)
-
-
 
 def on_resize(event): #Cada vez que se redimensiona el canvas, recibe un objeto event con información del nuevo tamaño
     dibujar_radar_base() #Redibuja de cero llamando a esta función
 
-
-
 radar_canvas.bind("<Configure>", on_resize) #Cuando se redimensiona el canvas, llama a on_resize
-
-
-
 
 
 canvas = FigureCanvasTkAgg(fig, master=graph_frame)
 canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-
-
 
 window.mainloop()
