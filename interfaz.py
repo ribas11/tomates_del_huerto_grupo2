@@ -7,12 +7,15 @@ import threading
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import math
-import time
+import datetime
+
+
 
 
 
 
 # device = 'COM5'
+
 
 
 # try:
@@ -31,11 +34,14 @@ import time
 #             pass
 
 
+
 #     mySerial = SerialFake()
+
 
 
 device = 'COM5'
 mySerial = serial.Serial(device, 9600)
+
 
 
 # Configurar la figura y el eje para la gráfica
@@ -46,7 +52,9 @@ ax.grid(True, which='both', color = "gray", linewidth=0.5)
 ax.set_title('Grafica dinamica Temperatura[ºC] - temps[s]:')
 
 
+
 mediaT = None #Variable de la media de la temperatura
+
 
 
 temperaturas = []
@@ -56,10 +64,29 @@ parar = True  # Empieza parado
 threadRecepcion = None
 periodoTH = 3
 temperaturas_medias = []
+mensaje = ""  
+
+
+
+# Función auxiliar para registrar eventos en archivos
+def registrar_evento(tipo_comando, detalles=""):
+    ahora = datetime.datetime.now()
+    fecha_hora = ahora.strftime("%d-%m-%Y %H:%M:%S")
+    # Diccionario con los nombres de archivos
+    archivos = {
+        "comando": "comandos.txt",
+        "alarma": "alarmas.txt",
+        "temperatura": "registrotemphum.txt"
+    }   
+    # Escribir en el archivo correspondiente
+    if tipo_comando in archivos:
+        with open(archivos[tipo_comando], "a") as f:  # "a" = append (añadir)
+            f.write(f"{fecha_hora} {detalles}\n")
+
 
 
 def recepcion():
-    global i, parar, temperaturas, eje_x, mySerial, periodoTH
+    global i, parar, temperaturas, eje_x, mySerial, periodoTH, mensaje
     while parar == False:
         if mySerial.in_waiting > 0:
             line = mySerial.readline().decode('utf-8').rstrip()
@@ -72,8 +99,10 @@ def recepcion():
                     i += periodoTH
 
 
+
                     ax.cla()
                     ax.plot(eje_x, temperaturas, label="Temperatura", color="blue")
+
 
 
                     if len(temperaturas_medias) > 0:
@@ -85,12 +114,19 @@ def recepcion():
                     ax.legend()
                     ax.grid(True, which='both', color = "gray", linewidth=0.5)
                     canvas.draw()
+                    
+                    registrar_evento("temperatura", f"Temp:{temperatura:.2f}°C Hum:{trozos[2] if len(trozos) > 2 else 'N/A'}")
+
 
 
                 except ValueError:
                     print(f"Error lectura temperatura: {trozos[1]}")
+                    trozos = ["0", "Error lectura temperatura"]
+                    
             if trozos[0] == '0':
                 print(f"Error del sistema: {trozos[1]}")
+                registrar_evento("alarma", trozos[1])
+                
             if trozos[0] == '4':
                 try:
                     media = float(trozos[1])
@@ -98,8 +134,8 @@ def recepcion():
                     mediaLabel.config(text=f"Media T:\n{media:.2f} °C")
                     print(f"Media recibida: {media:.2f}°C")
                 except:
-                    print("Error al leer media")
-
+                    print("Error lectura media")
+                    trozos = ["0", "Error lectura media"]
 
             # if len(eje_x) > 0:
             #     ax.cla()
@@ -115,6 +151,7 @@ def recepcion():
             #     canvas.draw()
 
 
+
             if trozos[0] == '2':
                 try:
                     distancia = float(trozos[1])
@@ -122,15 +159,19 @@ def recepcion():
                     RadarAutomatico(distancia, angulo)      
                 except (ValueError, IndexError) as e:
                     print(f"Error lectura radar: {e}")
+                    trozos = ["0", "Error lectura radar"]
+
 
 
 def ModoAutomaticoClick():
-    global modo_manual
+    global modo_manual, mensaje
     modo_manual = False
     control_deslizante.config(state="disabled")  # Desactivar slider
     mensaje = "3:RadarAutomatico\n"
     mySerial.write(mensaje.encode('utf-8'))
     print("Radar en modo automático")
+    registrar_evento("comando", "RadarAutomatico")
+
 
 
            
@@ -140,8 +181,10 @@ def RadarAutomatico(distancia, angulo):
     height = radar_canvas.winfo_height()
 
 
+
     if width <= 1 or height <= 1:
         return  # Canvas aún no inicializado
+
 
 
     # Centro del radar
@@ -149,12 +192,15 @@ def RadarAutomatico(distancia, angulo):
     y0 = height
 
 
+
     # Radio máximo
     max_radius = min(width/2, height * 0.9)
 
 
+
     # Escala (distancia en cm → píxeles aproximadamente)
     escala = max_radius / 50  # 50 = distancia máxima enviada por Arduino
+
 
 
     # Calcular posición del punto rojo
@@ -162,12 +208,15 @@ def RadarAutomatico(distancia, angulo):
     y = y0 - distancia * escala * math.sin(math.radians(angulo))
 
 
+
     # Dibujar punto rojo
     punto_id = radar_canvas.create_oval(x-10, y-10, x+10, y+10, fill="red", width=0)
 
 
+
     # Eliminarlo tras 200 ms
     radar_canvas.after(200, lambda: radar_canvas.delete(punto_id))
+
 
 
 
@@ -215,13 +264,16 @@ def dibujar_radar_base():
         radar_canvas.create_text(x_text, y_text, text=f"{angle}°", fill="black", font=("Arial", 15, "bold"))
 
 
+
 # def dibujar_radar_base():
 #     radar_canvas.delete("all")
+
 
 
 #     Obtener tamaño REAL del canvas
 #     w = radar_canvas.winfo_width()
 #     h = radar_canvas.winfo_height()
+
 
 
 #     if w <= 1 or h <= 1:
@@ -230,13 +282,16 @@ def dibujar_radar_base():
 #         return
 
 
+
 #     Centro del radar (abajo en el medio)
 #     x0 = w / 2
 #     y0 = h
 
 
+
 #     Radio máximo = 90% del alto
 #     R = h * 0.9
+
 
 
 #     Dibujar círculos
@@ -245,12 +300,14 @@ def dibujar_radar_base():
 #         radar_canvas.create_oval(x0 - r, y0 - r, x0 + r, y0 + r, width=2)
 
 
+
 #     Dibujar líneas angulares
 #     for angle in range(0, 181, 30):
 #         rad = math.radians(angle)
 #         x_end = x0 + R * math.cos(rad)
 #         y_end = y0 - R * math.sin(rad)
 #         radar_canvas.create_line(x0, y0, x_end, y_end, width=2)
+
 
 
 #     Dibujar textos
@@ -266,8 +323,9 @@ def dibujar_radar_base():
 
 
 
+
 def InicioClick():
-    global parar, threadRecepcion, i, temperaturas, eje_x
+    global parar, threadRecepcion, i, temperaturas, eje_x, mensaje
    
     # Detener el hilo anterior si está corriendo
     if threadRecepcion is not None and threadRecepcion.is_alive():
@@ -294,6 +352,7 @@ def InicioClick():
     print(mensaje)
     mySerial.write(mensaje.encode('utf-8'))
     calculomediaLabel.config(text="Calculando media en:\n Satélite")
+    registrar_evento("comando", "Inicio")
    
     # Iniciar recepcion
     threadRecepcion = threading.Thread(target=recepcion)
@@ -303,29 +362,34 @@ def InicioClick():
 
 
 
+
 def PararClick():
-    global parar
+    global parar, mensaje
     parar = True    
     mensaje = "3:parar\n"     # Enviar comando al Arduino para que pare de enviar datos
     print(mensaje)
     mySerial.write(mensaje.encode('utf-8'))
     mySerial.reset_input_buffer()   # Limpiar buffer al parar
+    registrar_evento("comando", "Parar")
+
 
 
 
 
 def ReanudarClick():
-    global parar, threadRecepcion
+    global parar, threadRecepcion, mensaje
     mySerial.reset_input_buffer()   # Limpiar buffer antes de reanudar
     parar = False
     mensaje = "3:reanudar\n"  # Enviar comando de reanudar
     print(mensaje)
     mySerial.write(mensaje.encode('utf-8'))
+    registrar_evento("comando", "Reanudar")
    
     threadRecepcion = threading.Thread(target=recepcion)
     threadRecepcion.daemon = True
     threadRecepcion.start()
    
+
 
 
 
@@ -341,31 +405,41 @@ def EnviarPeriodoClick(): # SOLUCIONAR QUE NO VA A MES DE 3 SEGONS
     print(f"Enviando período: {mensaje}")
     mySerial.write(mensaje.encode('utf-8'))
     periodoTH = int(periodo_sensor/1000)
-    messagebox.showinfo("Éxito", f"Período configurado a {periodo_sensor} ms")  
+    messagebox.showinfo("Éxito", f"Período configurado a {periodo_sensor} ms")
+    registrar_evento("comando", f"Cambio de periodo a {periodo_sensor} ms")
+    
        
 def CalcularMediaTSat():
+    global mensaje
     mensaje = "3:MediaSAT\n"
     mySerial.write(mensaje.encode('utf-8'))
     mediaLabel.config(text="Media T: \n(calculando...)")
     calculomediaLabel.config(text="Calculando media en:\n Satélite")
+    registrar_evento("comando", "MediaSAT")
+
 
 
 
 
 def CalcularMediaTTER():
+    global mensaje
     mensaje = "3:MediaTER\n"
     mySerial.write(mensaje.encode('utf-8'))
     mediaLabel.config(text="Media T:\n (calculando...)")
-    calculomediaLabel.config(text="Calculando media en:\n Estación Tierra")  
+    calculomediaLabel.config(text="Calculando media en:\n Estación Tierra")
+    registrar_evento("comando", "MediaTER")
+
 
 
 def RadarManual():
-    global modo_manual
+    global modo_manual, mensaje
     modo_manual = True
     control_deslizante.config(state="normal")  # Activar slider
     mensaje = "3:RadarManual\n"  # Solo activa modo manual
     mySerial.write(mensaje.encode('utf-8'))
     print("Radar en modo manual")
+    registrar_evento("comando", "RadarManual")
+
 
 
 def EnviarServo(valor):
@@ -374,6 +448,7 @@ def EnviarServo(valor):
         mensaje = f"3:RadarManual:{valor_int}\n"
         mySerial.write(mensaje.encode('utf-8'))
         print(f"Enviando valor servo: {valor_int}")
+
 
 
 # ===== VENTANA PRINCIPAL =====
@@ -392,10 +467,12 @@ window.columnconfigure(3, weight=2)
 window.columnconfigure(4, weight=2)
 
 
+
 #TITULO
 tituloFrame = Frame(window, width=400, height=120) #Creamos frame con tamaño fijo, donde irá el label
 tituloFrame.grid(row=0, column=0, columnspan=3, padx=3, pady=3)
 tituloFrame.grid_propagate(False)   #Evitamos que el tamaño cambie por el contenido
+
 
 
 # Label dentro del frame (puede tener la letra grande sin expandir nada)
@@ -407,17 +484,21 @@ tituloLabel.pack(expand=True, fill="both")
 
 
 
+
 # Botones de control (Inicio, Parar, Reanudar, cambiar donde calcula T)
 InicioButton = Button(window, text="Inicio", bg='green', fg="white",font=("Arial",20), command=InicioClick)
 InicioButton.grid(row=1, column=0, padx=1, pady=1, sticky=N + S + E + W)
+
 
 
 PararButton = Button(window, text="Parar", bg='red', fg="white", font=("Arial",20), command=PararClick)
 PararButton.grid(row=1, column=1, padx=1, pady=1, sticky=N + S + E + W)
 
 
+
 ReanudarButton = Button(window, text="Reanudar", bg='orange', fg="white", font=("Arial",20), command=ReanudarClick)
 ReanudarButton.grid(row=1, column=2, padx=1, pady=1, sticky=N + S + E + W)
+
 
 
 #Etiquitas para ver en tiempo real la media de temperatura
@@ -425,16 +506,20 @@ mediaLabel = Label(window, text="Media T: --- °C", font=("Courier", 18), fg="bl
 mediaLabel.grid(row=3, column=2, padx=5, pady=5, sticky=N + S + E + W)
 
 
+
 calculomediaLabel = Label(window, text="Calculando media en:\n ---", font=("Courier", 15), fg="black")
 calculomediaLabel.grid(row=4, column=2, padx=5, pady=5, sticky=N + S + E + W)
+
 
 
 ModoButton = Button(window, text="Calcular media \ntemperatura \nen Satélite", bg='purple', fg='white', font=("Arial",20), width=13, command=CalcularMediaTSat)
 ModoButton.grid(row=3, column=0, rowspan=2, padx=1, pady=1, sticky=N + S + E + W)
 
 
+
 ModoButton = Button(window, text="Calcular media \ntemperatura \nen Estación Tierra", bg='purple', fg='white', font=("Arial",20), width=13,command=CalcularMediaTTER)
 ModoButton.grid(row=3, column=1, rowspan=2, padx=1, pady=1, sticky=N + S + E + W)
+
 
 
 
@@ -459,6 +544,7 @@ infoLabel.pack(side=LEFT, padx=5, pady=5)
 
 
 
+
 ControlRadarFrame = tk.LabelFrame(window, text="Control Radar", font=("Courier", 11, "bold"))
 ControlRadarFrame.grid(row=5, column=3,columnspan=3, padx=3, pady=3, sticky=N + S + E + W)
 ControlRadarFrame.columnconfigure(0, weight=1) #Dentro del frame hacemos 2 columnas y 1 fila
@@ -466,19 +552,24 @@ ControlRadarFrame.columnconfigure(1, weight=1)
 ControlRadarFrame.rowconfigure(0, weight=1)
 
 
+
 valor_servo = tk.IntVar(value=90)  # Valor inicial en 90 grados
 control_deslizante = tk.Scale(ControlRadarFrame, from_=0, to=180, orient=tk.HORIZONTAL, resolution=1, variable=valor_servo, length=200, command=EnviarServo) # Configuramos el control deslizante para que vaya de 0 a 180, con una resolución de 1 y lo orientamos horizontalmente
 
 
+
 control_deslizante.grid(row=0, column=0, rowspan=1, padx=5, pady=5, sticky=N + S + E + W) #Dentro del frame lo ponemos en la fila 0, columna 0
+
 
 
 ModoAutomatico = Button(ControlRadarFrame, text="Radar\nAutomático", bg='blue', fg="white", command=ModoAutomaticoClick)
 ModoAutomatico.grid(row=1, column=0,padx=5, pady=5, sticky=N + S + E + W)
 
 
+
 ModoManual = Button(ControlRadarFrame, text="Radar\nManual", bg='orange', fg="white", command=RadarManual)
 ModoManual.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
+
 
 
 
@@ -490,19 +581,24 @@ graph_frame = tk.LabelFrame(window, text="Grafica temperatura en viu", font=("Co
 graph_frame.grid(row=0, column=3, rowspan=2, columnspan=2,padx=1, pady=1, sticky=N+S+E+W)
 
 
+
 radar_frame = tk.LabelFrame(window, text="Radar satélite", font=("Courier", 15, "italic"))
 radar_frame.grid(row=2, column=3, rowspan=3,columnspan=2,padx=1, pady=1, sticky=N+S+E+W)
+
 
 
 radar_canvas = Canvas(radar_frame, width=400, height=300, bg='lightgreen')
 radar_canvas.pack(fill=tk.BOTH, expand=True)
 
 
+
 def on_resize(event): #Cada vez que se redimensiona el canvas, recibe un objeto event con información del nuevo tamaño
     dibujar_radar_base() #Redibuja de cero llamando a esta función
 
 
+
 radar_canvas.bind("<Configure>", on_resize) #Cuando se redimensiona el canvas, llama a on_resize
+
 
 
 
@@ -511,5 +607,5 @@ canvas = FigureCanvasTkAgg(fig, master=graph_frame)
 canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
 
-window.mainloop()
 
+window.mainloop()
