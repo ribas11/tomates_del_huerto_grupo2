@@ -47,7 +47,10 @@ i = 0
 parar = True  # Empieza parado
 threadRecepcion = None
 periodoTH = 3
+<<<<<<< HEAD
 temperaturas_medias = []
+=======
+>>>>>>> 5f511516fffbec905765d62bb247572a2e208fb6
 
 def recepcion():
     global i, parar, temperaturas, eje_x, mySerial, periodoTH
@@ -82,12 +85,17 @@ def recepcion():
             if trozos[0] == '4':
                 try:
                     media = float(trozos[1])
+<<<<<<< HEAD
                     temperaturas_medias.append(media)
                     mediaLabel.config(text=f"Media T:\n{media:.2f} °C")
+=======
+                    mediaLabel.config(text=f"Media T: {media:.2f} °C")
+>>>>>>> 5f511516fffbec905765d62bb247572a2e208fb6
                     print(f"Media recibida: {media:.2f}°C")
                 except:
                     print("Error al leer media")
 
+<<<<<<< HEAD
             # if len(eje_x) > 0:
             #     ax.cla()
             #     ax.plot(eje_x, temperaturas, label="Temperatura", color="blue")
@@ -226,6 +234,8 @@ def dibujar_radar_base():
 #         xt = x0 + (R + offset) * math.cos(rad)
 #         yt = y0 - (R + offset) * math.sin(rad)
 #         radar_canvas.create_text(xt, yt, text=f"{angle}°", font=("Arial", 10, "bold"))
+=======
+>>>>>>> 5f511516fffbec905765d62bb247572a2e208fb6
 
 
 
@@ -303,13 +313,18 @@ def EnviarPeriodoClick(): # SOLUCIONAR QUE NO VA A MES DE 3 SEGONS
 def CalcularMediaTSat():
     mensaje = "3:MediaSAT\n"
     mySerial.write(mensaje.encode('utf-8'))
+<<<<<<< HEAD
     mediaLabel.config(text="Media T: \n(calculando...)")
     calculomediaLabel.config(text="Calculando media en:\n Satélite")
+=======
+    mediaLabel.config(text="Media T: (calculando...)")
+>>>>>>> 5f511516fffbec905765d62bb247572a2e208fb6
 
 
 def CalcularMediaTTER():
     mensaje = "3:MediaTER\n"
     mySerial.write(mensaje.encode('utf-8'))
+<<<<<<< HEAD
     mediaLabel.config(text="Media T:\n (calculando...)")
     calculomediaLabel.config(text="Calculando media en:\n Estación Tierra")  
 
@@ -327,6 +342,10 @@ def EnviarServo(valor):
         mensaje = f"3:RadarManual:{valor_int}\n"
         mySerial.write(mensaje.encode('utf-8'))
         print(f"Enviando valor servo: {valor_int}")
+=======
+    mediaLabel.config(text="Media T: (calculando...)")
+
+>>>>>>> 5f511516fffbec905765d62bb247572a2e208fb6
 
 # ===== VENTANA PRINCIPAL =====
 window = Tk()
@@ -335,8 +354,11 @@ window.rowconfigure(0, weight=1)
 window.rowconfigure(1, weight=1)
 window.rowconfigure(2, weight=1)  
 window.rowconfigure(3, weight=1)
+<<<<<<< HEAD
 window.rowconfigure(4, weight=1)
 window.rowconfigure(5, weight=1)
+=======
+>>>>>>> 5f511516fffbec905765d62bb247572a2e208fb6
 window.columnconfigure(0, weight=1)
 window.columnconfigure(1, weight=1)
 window.columnconfigure(2, weight=1)
@@ -354,8 +376,14 @@ tituloLabel.pack(expand=True, fill="both")
 
 
 
+<<<<<<< HEAD
 # Botones de control (Inicio, Parar, Reanudar, cambiar donde calcula T)
 InicioButton = Button(window, text="Inicio", bg='green', fg="white",font=("Arial",20), command=InicioClick)
+=======
+
+# Botones de control (Inicio, Parar, Reanudar, cambiar donde calcula T)
+InicioButton = Button(window, text="Inicio", bg='green', fg="white", command=InicioClick)
+>>>>>>> 5f511516fffbec905765d62bb247572a2e208fb6
 InicioButton.grid(row=1, column=0, padx=1, pady=1, sticky=N + S + E + W)
 
 PararButton = Button(window, text="Parar", bg='red', fg="white", font=("Arial",20), command=PararClick)
@@ -365,6 +393,7 @@ ReanudarButton = Button(window, text="Reanudar", bg='orange', fg="white", font=(
 ReanudarButton.grid(row=1, column=2, padx=1, pady=1, sticky=N + S + E + W)
 
 #Etiquitas para ver en tiempo real la media de temperatura
+<<<<<<< HEAD
 mediaLabel = Label(window, text="Media T: --- °C", font=("Courier", 18), fg="blue")
 mediaLabel.grid(row=3, column=2, padx=5, pady=5, sticky=N + S + E + W)
 
@@ -376,6 +405,17 @@ ModoButton.grid(row=3, column=0, rowspan=2, padx=1, pady=1, sticky=N + S + E + W
 
 ModoButton = Button(window, text="Calcular media \ntemperatura \nen Estación Tierra", bg='purple', fg='white', font=("Arial",20), width=13,command=CalcularMediaTTER)
 ModoButton.grid(row=3, column=1, rowspan=2, padx=1, pady=1, sticky=N + S + E + W)
+=======
+mediaLabel = Label(window, text="Media T: --- °C", font=("Courier", 14), fg="blue")
+mediaLabel.grid(row=3, column=2, padx=5, pady=5, sticky=N + S + E + W)
+
+
+ModoButton = Button(window, text="Media temperatura Satelite", bg='purple', fg='white', command=CalcularMediaTSat)
+ModoButton.grid(row=3, column=0, padx=1, pady=1, sticky=N + S + E + W)
+
+ModoButton = Button(window, text="Media temperatura Estación Tierra", bg='purple', fg='white', command=CalcularMediaTTER)
+ModoButton.grid(row=3, column=1, padx=1, pady=1, sticky=N + S + E + W)
+>>>>>>> 5f511516fffbec905765d62bb247572a2e208fb6
 
 
 # PERIODO

@@ -2,6 +2,10 @@
 
 ![Grupo 2](imagendelgrupo2superrealista100x100realnofake.jpg)
 
+## Videos explicativos
+- Versión 1: https://youtu.be/9xndj4gOBC0
+- Versión 2: https://youtu.be/yomSmsEQIq0
+
 ---
 
 ## 📋 Descripción
