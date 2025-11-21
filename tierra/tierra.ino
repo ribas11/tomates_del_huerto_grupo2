@@ -82,7 +82,7 @@ void loop() {
     mySerial.println(i);
     nextMillis1 = millis() + interval1; 
     i = i + 1;
-    Serial.println(i);
+    //Serial.println(i); // QUITAR!!!
   }
   
   if (mySerial.available()) {       //Recibir datos del satélite
@@ -130,7 +130,9 @@ void loop() {
     }
     else if (mensaje[0] == '4'){
       int ini = mensaje.indexOf(':', 0) +1;
-      TempMax = mensaje.indexOf(':', ini) +1;
+      int fini = mensaje.indexOf(':', ini);
+      String TM = mensaje.substring(fini +1);
+      TempMax = TM.toInt();
       if (TempMax == 1){
         digitalWrite(LedTempMax, HIGH);
       }
