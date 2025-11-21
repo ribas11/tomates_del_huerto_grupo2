@@ -3,6 +3,7 @@
 SoftwareSerial mySerial(10, 11); // RX, TX (azul, naranja)
 bool enviardatos = true; 
 bool fallodatos = false; 
+bool enviardistancia = true;
 long nextMillis; // Envia datos
 long nextMillis2; // Error de datos
 long nextMillisLED;
@@ -131,6 +132,24 @@ void loop(){
       Serial.print("Período actualizado a: ");
       Serial.println(interval);
     }
+    if (codigo == 6){
+      fin = data.indexOf('\n', inicio);
+      if (fin == -1) 
+        fin = data.length();
+      orden = data.substring(inicio, fin);
+      Serial.print("Orden recibida: ");
+      Serial.println(orden);
+
+      if (orden == "inicio"){
+        enviardistancia = true;
+        nextMillis = millis() + interval; // Reinicia el temporizador para evitar salto
+      }
+      if (orden == "parar"){
+        enviardistancia = false;
+      }
+
+
+    }
   }
   
   if (enviardatos == true && millis() >= nextMillis){
@@ -209,7 +228,7 @@ void loop(){
     duracionSensor = pulseIn(echoPin, HIGH, 30000); // Medimos el tiempo que tarda el pulso en volver
     // 30000 es el timeout, hace que deje de esperar al pulso si pasan 30ms y no ha llegado nada aún
     
-    if (duracionSensor > 0) { // Si ha llegado el pulso en el tiempo establecido
+    if ((duracionSensor > 0) && (enviardistancia == true)) { // Si ha llegado el pulso en el tiempo establecido
       distanciaSensor = duracionSensor * 0.034 / 2; // Distancia = tiempo * velocidad del sonido / 2
       
       mySerial.print("2"); // Envia 2:distancia:angulo

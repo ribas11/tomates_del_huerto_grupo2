@@ -66,6 +66,8 @@ periodoTH = 3
 temperaturas_medias = []
 mensaje = ""  
 
+error_activo = False
+
 # ==== FICHEROS DE EVENTOS ====
 def limpiar_archivos():
     archivos = ["comandos.txt", "alarmas.txt", "registrotemphum.txt", "observaciones.txt"]
@@ -90,12 +92,13 @@ def registrar_evento(tipo_comando, detalles=""):
 
 
 def recepcion():
-    global i, parar, temperaturas, eje_x, mySerial, periodoTH, mensaje
+    global i, parar, temperaturas, eje_x, mySerial, periodoTH, mensaje, pararRad
     while parar == False:
         if mySerial.in_waiting > 0:
             line = mySerial.readline().decode('utf-8').rstrip()
             trozos = line.split(':')
             if trozos[0] == '1':
+                CerrarVentanaError()
                 try:
                     temperatura = float(trozos[1])
                     eje_x.append(i)
@@ -130,7 +133,7 @@ def recepcion():
             if trozos[0] == '0':
                 print(f"Error del sistema: {trozos[1]}")
                 registrar_evento("alarma", trozos[1])
-                
+                AbrirVentanaError(trozos[1])
             if trozos[0] == '4':
                 try:
                     media = float(trozos[1])
@@ -154,8 +157,10 @@ def recepcion():
             #     ax.grid(True, which='both', color = "gray", linewidth=0.5)
             #     canvas.draw()
 
-
-
+    while pararRad == False:
+        if mySerial.in_waiting > 0:
+            line = mySerial.readline().decode('utf-8').rstrip()
+            trozos = line.split(':')
             if trozos[0] == '2':
                 try:
                     distancia = float(trozos[1])
@@ -163,8 +168,6 @@ def recepcion():
                     RadarAutomatico(distancia, angulo)      
                 except (ValueError, IndexError) as e:
                     print(f"Error lectura radar: {e}")
-                    trozos = ["0", "Error lectura radar"]
-
 
 
 def ModoAutomaticoClick():
@@ -429,9 +432,24 @@ def CalcularMediaTTER():
     registrar_evento("comando", "MediaTER")
 
 def InicioClickRad():
-    global i
+    global pararRad, threadRecepcion
+    if threadRecepcion is not None and threadRecepcion.is_alive():
+        pararRad = True
+        threadRecepcion.join(timeout=1)
+    pararRad = False
+    mensaje = "6:inicio\n"    
+    print(mensaje)
+    mySerial.write(mensaje.encode('utf-8'))
+    threadRecepcion = threading.Thread(target=recepcion)
+    threadRecepcion.daemon = True
+    threadRecepcion.start()
 def PararClickRad():
-    global i
+    global pararRad, threadRecepcion
+    pararRad = True    
+    mensaje = "6:parar\n"     # Enviar comando al Arduino para que pare de enviar datos
+    print(mensaje)
+    mySerial.write(mensaje.encode('utf-8'))
+    mySerial.reset_input_buffer()   # Limpiar buffer al parar
 
 def RadarManual():
     global modo_manual, mensaje
@@ -450,6 +468,42 @@ def EnviarServo(valor):
         mensaje = f"3:RadarManual:{valor_int}\n"
         mySerial.write(mensaje.encode('utf-8'))
         print(f"Enviando valor servo: {valor_int}")
+
+# ==== FUNCION ERROR ====
+def AbrirVentanaError(error):
+    global error_activo, VenEr
+    if error_activo == False:
+        error_activo = True
+        VenEr = tk.Toplevel(window)
+        VenEr.geometry("600x300")
+        VenEr.title("ERROR")
+        VenEr.configure(bg="#2600FF")
+        tk.Label(
+            VenEr,
+            text="¡" + error + "!",
+            font=("Arial", 20, "bold"),
+            fg="red",
+            bg="#FFE5E5"
+        ).pack(pady=(20, 10))  
+        tk.Label(
+            VenEr,
+            text="No se ha captar datos de\ntemperatura y humedad.\nPor favor, revisa el sistema.",
+            font=("Arial", 14),
+            fg="darkred",
+            bg="#FFE5E5",
+            justify="center"  
+        ).pack(pady=5)
+        def evitar_cierre():
+            messagebox.showwarning("Aviso", "No puedes cerrar esta ventana, el error aun persiste.")
+        if error_activo == True:
+            VenEr.protocol("WM_DELETE_WINDOW", evitar_cierre)
+        elif error_activo == False:
+            VenEr.destroy()
+def CerrarVentanaError():
+    global VenEr, error_activo
+    if error_activo == True:
+        error_activo = False
+        VenEr.destroy()
 
 
 
@@ -475,7 +529,7 @@ tituloFrame.grid(row=0, column=0, columnspan=3, padx=3, pady=3)
 tituloFrame.grid_propagate(False)   #Evitamos que el tamaño cambie por el contenido
 
 # Label dentro del frame (puede tener la letra grande sin expandir nada)
-tituloLabel = Label(tituloFrame, text="Versión 1 \n Control de Sensor", font=("Courier", 40, "italic"))
+tituloLabel = Label(tituloFrame, text="Versión 3 \n Mesa de Control", font=("Courier", 40, "italic"))
 tituloLabel.pack(expand=True, fill="both")
 
 ControlRadarFrame = tk.LabelFrame(window, text="Controlar radar", font=("Courier", 11, "bold"))
@@ -517,10 +571,10 @@ PararButtonRad.grid(row=0, column=1, padx=1, pady=1, sticky=N + S + E + W)
 
 #Etiquitas para ver en tiempo real la media de temperatura
 mediaLabel = Label(window, text="Media T: --- °C", font=("Courier", 18), fg="blue")
-mediaLabel.grid(row=3, column=2, padx=5, pady=5, ipady=30, sticky=N + E + W)
+mediaLabel.grid(row=3, column=2, padx=5, pady=5, ipady=0, sticky=N + E + W)
 
 calculomediaLabel = Label(window, text="Calculando media en:\n ---", font=("Courier", 15), fg="black")
-calculomediaLabel.grid(row=3, column=2, padx=5, pady=5, ipady=30,sticky=S + E + W)
+calculomediaLabel.grid(row=3, column=2, padx=5, pady=5, ipady=0,sticky=S + E + W)
 
 ModoButton = Button(window, text="Calcular media \ntemperatura \nen Satélite", bg='purple', fg='white', font=("Arial",20), width=13, command=CalcularMediaTSat)
 ModoButton.grid(row=3, column=0, rowspan=1, padx=1, pady=1, sticky=N + S + E + W)
@@ -566,7 +620,7 @@ ModoManual.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
 
 
 # Gráfica
-graph_frame = tk.LabelFrame(window, text="Grafica temperatura en viu", font=("Courier", 15, "italic"))
+graph_frame = tk.LabelFrame(window, text="Gráfica temperatura en viu", font=("Courier", 15, "italic"))
 graph_frame.grid(row=0, column=3, rowspan=2, columnspan=2,padx=1, pady=1, sticky=N+S+E+W)
 
 radar_frame = tk.LabelFrame(window, text="Radar satélite", font=("Courier", 15, "italic"))

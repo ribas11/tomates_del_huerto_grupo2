@@ -2,6 +2,7 @@
 SoftwareSerial mySerial(10, 11); // RX, TX
 
 int i;
+
 bool MediaTER = false;
 int TempMax = 0;
 long nextMillis1; 
