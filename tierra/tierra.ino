@@ -1,8 +1,9 @@
 #include <SoftwareSerial.h>
+SoftwareSerial mySerial(10, 11); // RX, TX
 
 int i;
 bool MediaTER = false;
-SoftwareSerial mySerial(10, 11); // RX, TX
+int TempMax = 0;
 long nextMillis1; 
 long nextMillis2; 
 long nextMillis3; 
@@ -14,6 +15,7 @@ const int intervalLED = 1000; // LEDs encendidos
 const int LedEarth = 2; 
 const int LedComms = 7; 
 const int LedErrorDatos = 4;
+const int LedTempMax = 8;
 
 // MEDIA DE TEMPERATURA
 bool calcularmedia = true;
@@ -35,9 +37,11 @@ void setup() {
   pinMode(LedEarth, OUTPUT);
   pinMode(LedComms, OUTPUT);
   pinMode(LedErrorDatos, OUTPUT);
+  pinMode(LedTempMax, OUTPUT);
   digitalWrite(LedEarth, LOW);
   digitalWrite(LedComms, LOW);
   digitalWrite(LedErrorDatos, LOW);
+  digitalWrite(LedTempMax , LOW);
   
   nextMillis1 = millis() + interval1;
   nextMillis2 = millis();
@@ -97,8 +101,8 @@ void loop() {
       nextMillis2 = millis() + interval2; //Para que se apague luego
 
       digitalWrite(LedErrorDatos, LOW);
-      if(MediaTER == true){
-        int ini = mensaje.indexOf(':', 0) + 1;
+      if (MediaTER == true){
+        int ini = mensaje.indexOf(':', 0) +1;
         int fini = mensaje.indexOf(':', ini);
         for (int b = 0; b <= fini-ini; b++){
           info[b] = mensaje[ini + b];
@@ -122,6 +126,16 @@ void loop() {
             Tmaxsobrepasada = 1;
           }
         }
+      }
+    }
+    else if (mensaje[0] == '4'){
+      int ini = mensaje.indexOf(':', 0) +1;
+      TempMax = mensaje.indexOf(':', ini) +1;
+      if (TempMax == 1){
+        digitalWrite(LedTempMax, HIGH);
+      }
+      else {
+        digitalWrite(LedTempMax, LOW);
       }
     }
   }
