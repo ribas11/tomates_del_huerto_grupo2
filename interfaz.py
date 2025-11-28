@@ -8,34 +8,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import math
 import datetime
-
-
-
-
-
-
-# device = 'COM5'
-
-
-
-# try:
-#     mySerial = serial.Serial(device, 9600)
-# except:
-#     print("⚠ No se encontró el puerto COM5. Ejecutando en modo SIMULACIÓN.")
-   
-#     class SerialFake:
-#         def _init_(self):
-#             self.in_waiting = 0
-#         def readline(self):
-#             return b""
-#         def write(self, x):
-#             print("SIMULACIÓN -> Arduino recibiría:", x.decode().strip())
-#         def reset_input_buffer(self):
-#             pass
-
-
-
-#     mySerial = SerialFake()
+import tkinter.scrolledtext as scrolledtext
 
 
 
@@ -88,6 +61,27 @@ def registrar_evento(tipo_comando, detalles=""):
     if tipo_comando in archivos:
         with open(archivos[tipo_comando], "a") as f:  # "a" = append (añadir)
             f.write(f"{fecha_hora} {detalles}\n")
+def PopUp(fichero):
+    fichero = str(fichero)
+    ventana_popup = tk.Toplevel()
+    ventana_popup.title("Contenido del archivo")
+    ventana_popup.geometry("600x400")
+    texto = scrolledtext.ScrolledText(ventana_popup, wrap=tk.WORD)
+    texto.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+    contenido = open(fichero, "r", encoding="utf-8").read()
+    texto.insert(tk.END, contenido)
+    texto.config(state=tk.DISABLED)  
+    boton = tk.Button(ventana_popup, text="Cerrar", command=ventana_popup.destroy)
+    boton.pack(pady=10)
+def PopUpComandosClick():
+    tipofichero = "comandos.txt"
+    PopUp(tipofichero)
+def PopUpAlarmasClick():
+    tipofichero = "alarmas.txt"
+    PopUp(tipofichero)
+def PopUpTemperaturasClick():
+    tipofichero = "registrotemphum.txt"
+    PopUp(tipofichero)
 
 
 
@@ -122,7 +116,7 @@ def recepcion():
                     ax.grid(True, which='both', color = "gray", linewidth=0.5)
                     canvas.draw()
                     
-                    registrar_evento("temperatura", f"Temp:{temperatura:.2f}°C Hum:{trozos[2] if len(trozos) > 2 else 'N/A'}")
+                    registrar_evento("temperatura", f"Temp:{temperatura:.2f}C Hum:{trozos[2] if len(trozos) > 2 else 'N/A'}")
 
 
 
@@ -143,19 +137,6 @@ def recepcion():
                 except:
                     print("Error lectura media")
                     trozos = ["0", "Error lectura media"]
-
-            # if len(eje_x) > 0:
-            #     ax.cla()
-            #     ax.plot(eje_x, temperaturas, label="Temperatura", color="blue")
-            #     # Dibujar la media solo si hay suficientes datos
-            #     if len(temperaturas_medias) > 0:
-            #         ax.plot(eje_x[-len(temperaturas_medias):], temperaturas_medias, label="Media", color="orange", linestyle="--")
-            #     ax.set_xlim(max(0, i-15), i+5)
-            #     ax.set_ylim(15, 35)
-            #     ax.set_title('Grafica dinamica Temperatura[ºC] - temps[s]:')
-            #     ax.legend()
-            #     ax.grid(True, which='both', color = "gray", linewidth=0.5)
-            #     canvas.draw()
 
     while pararRad == False:
         if mySerial.in_waiting > 0:
@@ -269,66 +250,6 @@ def dibujar_radar_base():
         x_text = x0 + (max_radius + offset) * math.cos(rad)
         y_text = y0 - (max_radius + offset) * math.sin(rad)
         radar_canvas.create_text(x_text, y_text, text=f"{angle}°", fill="black", font=("Arial", 15, "bold"))
-
-
-
-# def dibujar_radar_base():
-#     radar_canvas.delete("all")
-
-
-
-#     Obtener tamaño REAL del canvas
-#     w = radar_canvas.winfo_width()
-#     h = radar_canvas.winfo_height()
-
-
-
-#     if w <= 1 or h <= 1:
-#         El canvas aún no está inicializado → esperar
-#         radar_canvas.after(100, dibujar_radar_base)
-#         return
-
-
-
-#     Centro del radar (abajo en el medio)
-#     x0 = w / 2
-#     y0 = h
-
-
-
-#     Radio máximo = 90% del alto
-#     R = h * 0.9
-
-
-
-#     Dibujar círculos
-#     for f in range(1, 6):
-#         r = (R / 5) * f
-#         radar_canvas.create_oval(x0 - r, y0 - r, x0 + r, y0 + r, width=2)
-
-
-
-#     Dibujar líneas angulares
-#     for angle in range(0, 181, 30):
-#         rad = math.radians(angle)
-#         x_end = x0 + R * math.cos(rad)
-#         y_end = y0 - R * math.sin(rad)
-#         radar_canvas.create_line(x0, y0, x_end, y_end, width=2)
-
-
-
-#     Dibujar textos
-#     offset = 20
-#     for angle in range(30, 180, 30):
-#         rad = math.radians(angle)
-#         xt = x0 + (R + offset) * math.cos(rad)
-#         yt = y0 - (R + offset) * math.sin(rad)
-#         radar_canvas.create_text(xt, yt, text=f"{angle}°", font=("Arial", 10, "bold"))
-
-
-
-
-
 
 
 def InicioClick():
@@ -599,7 +520,7 @@ EnviarButton.pack(side=LEFT, padx=5, pady=5)
 infoLabel = Label(periodoFrame, text="(Ej: 1000 ms = 1 segundo)", font=("Courier", 9, "italic"))
 infoLabel.pack(side=LEFT, padx=5, pady=5)
 
-
+# Servomotor y ultrasonidos
 ControlRadarFrame = tk.LabelFrame(window, text="Control Radar", font=("Courier", 11, "bold"))
 ControlRadarFrame.grid(row=5, column=3,columnspan=3, padx=3, pady=3, sticky=N + S + E + W)
 ControlRadarFrame.columnconfigure(0, weight=1) #Dentro del frame hacemos 2 columnas y 1 fila
@@ -617,6 +538,18 @@ ModoAutomatico.grid(row=1, column=0,padx=5, pady=5, sticky=N + S + E + W)
 ModoManual = Button(ControlRadarFrame, text="Radar\nManual", bg='orange', fg="white", command=RadarManual)
 ModoManual.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
 
+# Abrir ficheros de eventos
+FicherosFrame = tk.LabelFrame(window, text="Ficheros de registro de eventos", font=("Courier", 11, "bold"))
+FicherosFrame.grid(row=5, column=0, columnspan=3, padx=3, pady=3, sticky=N + S + E + W)
+ComandosButton = Button(FicherosFrame, text="Registro de comandos", bg='purple', fg="white", 
+                        font=("Arial", 15), command=PopUpComandosClick)
+ComandosButton.pack(side=LEFT, padx=10, pady=5, fill="both", expand=True)
+AlarmasButton = Button(FicherosFrame, text="Registro de alarmas", bg='red', fg="white", 
+                         font=("Arial", 15), command=PopUpAlarmasClick)
+AlarmasButton.pack(side=LEFT, padx=10, pady=5, fill="both", expand=True)
+TemperaturasButton = Button(FicherosFrame, text="Registro de temperaturas", bg='orange', fg="white", 
+                         font=("Arial", 15), command=PopUpTemperaturasClick)
+TemperaturasButton.pack(side=LEFT, padx=10, pady=5, fill="both", expand=True)
 
 
 # Gráfica
