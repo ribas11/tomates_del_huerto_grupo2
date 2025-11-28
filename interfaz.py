@@ -55,7 +55,8 @@ def registrar_evento(tipo_comando, detalles=""):
     archivos = {
         "comando": "comandos.txt",
         "alarma": "alarmas.txt",
-        "temperatura": "registrotemphum.txt"
+        "temperatura": "registrotemphum.txt",
+        "observacion": "observaciones.txt"
     }   
     # Escribir en el archivo correspondiente
     if tipo_comando in archivos:
@@ -81,6 +82,9 @@ def PopUpAlarmasClick():
     PopUp(tipofichero)
 def PopUpTemperaturasClick():
     tipofichero = "registrotemphum.txt"
+    PopUp(tipofichero)  
+def PopUpObservacionesClick():
+    tipofichero = "observaciones.txt"
     PopUp(tipofichero)
 
 
@@ -426,6 +430,14 @@ def CerrarVentanaError():
         error_activo = False
         VenEr.destroy()
 
+# Registro observaciones
+def RegistrarObservacion():
+    observacion = ObservacionesEntry.get()  
+    messagebox.showinfo("Éxito", "Éxito, observación registrada")
+    registrar_evento("observacion", observacion)
+    ObservacionesEntry.insert(0, "hola")  
+
+
 
 
 # ===== VENTANA PRINCIPAL =====
@@ -503,20 +515,20 @@ ModoButton.grid(row=3, column=0, rowspan=1, padx=1, pady=1, sticky=N + S + E + W
 ModoButton = Button(window, text="Calcular media \ntemperatura \nen Estación Tierra", bg='purple', fg='white', font=("Arial",20), width=13,command=CalcularMediaTTER)
 ModoButton.grid(row=3, column=1, rowspan=1, padx=1, pady=1, sticky=N + S + E + W)
 
-# PERIODO
+# Cambiar periodo
 periodoFrame = tk.LabelFrame(window, text="Configuración del Período (ms)", font=("Courier", 14, "bold"))
 periodoFrame.grid(row=2, column=0, columnspan=3, padx=3, pady=3, sticky=N + S + E + W)
-# Etiqueta
+
 periodoLabel = Label(periodoFrame, text="Período (milisegundos):", font=("Courier", 10))
 periodoLabel.pack(side=LEFT, padx=5, pady=5)
-# Casilla de entrada (Entry)
+
 periodoEntry = tk.Entry(periodoFrame, font=("Courier", 10), width=15)
 periodoEntry.insert(0, "3000")  # Valor por defecto
 periodoEntry.pack(side=LEFT, padx=5, pady=5)
-# Botón para enviar el período
+
 EnviarButton = Button(periodoFrame, text="Enviar Período", bg='blue', fg="white", command=EnviarPeriodoClick)
 EnviarButton.pack(side=LEFT, padx=5, pady=5)
-# Información
+
 infoLabel = Label(periodoFrame, text="(Ej: 1000 ms = 1 segundo)", font=("Courier", 9, "italic"))
 infoLabel.pack(side=LEFT, padx=5, pady=5)
 
@@ -539,7 +551,7 @@ ModoManual = Button(ControlRadarFrame, text="Radar\nManual", bg='orange', fg="wh
 ModoManual.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
 
 # Abrir ficheros de eventos
-FicherosFrame = tk.LabelFrame(window, text="Ficheros de registro de eventos", font=("Courier", 11, "bold"))
+FicherosFrame = tk.LabelFrame(window, text="Ficheros de registro de eventos", font=("Courier", 14, "bold"))
 FicherosFrame.grid(row=5, column=0, columnspan=3, padx=3, pady=3, sticky=N + S + E + W)
 ComandosButton = Button(FicherosFrame, text="Registro de comandos", bg='purple', fg="white", 
                         font=("Arial", 15), command=PopUpComandosClick)
@@ -547,10 +559,24 @@ ComandosButton.pack(side=LEFT, padx=10, pady=5, fill="both", expand=True)
 AlarmasButton = Button(FicherosFrame, text="Registro de alarmas", bg='red', fg="white", 
                          font=("Arial", 15), command=PopUpAlarmasClick)
 AlarmasButton.pack(side=LEFT, padx=10, pady=5, fill="both", expand=True)
+FObservacionesButton = Button(FicherosFrame, text="Registro de observaciones", bg='pink', fg="white", 
+                         font=("Arial", 15), command=PopUpObservacionesClick)
+FObservacionesButton.pack(side=LEFT, padx=10, pady=5, fill="both", expand=True)
 TemperaturasButton = Button(FicherosFrame, text="Registro de temperaturas", bg='orange', fg="white", 
                          font=("Arial", 15), command=PopUpTemperaturasClick)
 TemperaturasButton.pack(side=LEFT, padx=10, pady=5, fill="both", expand=True)
 
+#Label observaciones
+ObservacionesFrame = tk.LabelFrame(window, text="Registro de obervaciones (SOLO PERSONAL AUTORIZADO)", font=("Courier", 14, "bold"))
+ObservacionesFrame.grid(row=6, column=0, columnspan=3, padx=3, pady=3, sticky=N + S + E + W)
+ObservacionesLabel = Label(ObservacionesFrame, text="Observación a registrar:", font=("Courier", 10))
+ObservacionesLabel.pack(side=LEFT, padx=5, pady=5)
+
+ObservacionesEntry = tk.Entry(ObservacionesFrame, font=("Courier", 10), width=15)
+ObservacionesEntry.pack(side=LEFT, padx=5, pady=5)
+
+EnviarButton = Button(ObservacionesFrame, text="Registrar", bg='blue', fg="white", command=RegistrarObservacion)
+EnviarButton.pack(side=LEFT, padx=5, pady=5)
 
 # Gráfica
 graph_frame = tk.LabelFrame(window, text="Gráfica temperatura en viu", font=("Courier", 15, "italic"))
