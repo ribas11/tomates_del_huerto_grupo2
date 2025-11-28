@@ -120,7 +120,7 @@ def recepcion():
                     ax.grid(True, which='both', color = "gray", linewidth=0.5)
                     canvas.draw()
                     
-                    registrar_evento("temperatura", f"Temp:{temperatura:.2f}C Hum:{trozos[2] if len(trozos) > 2 else 'N/A'}")
+                    registrar_evento("temperatura", f"Temp:{temperatura:.2f}C Hum:{trozos[2]}")
 
 
 
@@ -435,8 +435,7 @@ def RegistrarObservacion():
     observacion = ObservacionesEntry.get()  
     messagebox.showinfo("Éxito", "Éxito, observación registrada")
     registrar_evento("observacion", observacion)
-    ObservacionesEntry.insert(0, "hola")  
-
+    ObservacionesEntry.delete(0, tk.END)
 
 
 
