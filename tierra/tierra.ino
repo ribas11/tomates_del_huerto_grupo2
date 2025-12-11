@@ -9,7 +9,7 @@ long nextMillis1;
 long nextMillis2; 
 long nextMillis3; 
 long nextMillisLED; 
-int interval1 = 3000; // Intervalo de solicitud datos
+int interval1 = 5000; // Intervalo de solicitud datos
 const int interval2 = 1000; // Intervalo apagar LED 
 const int interval3 = 7000; // Timeout de error
 const int intervalLED = 1000; // LEDs encendidos 
