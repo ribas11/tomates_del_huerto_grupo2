@@ -7,8 +7,8 @@ bool enviardistancia = true;
 long nextMillis; // Envia datos
 long nextMillis2; // Error de datos
 long nextMillisLED;
-int interval = 3000; // Intervalo de envío
-const int interval2 = 4000; // Intervalo de error
+int interval = 5000; // Intervalo de envío
+const int interval2 = 6000; // Intervalo de error
 const int intervalLED = 1000; // LED encendido
 float periodoTH;
 
@@ -22,16 +22,16 @@ const int LedDatos = 7; // Error de datos
 //SERVOMOTOR
 #include <Servo.h>     
 Servo myServo;         
-const long intervalServoMotor = 40; // Cada 40ms cambia el ángulo
+const long intervalServoMotor = 3000; // Cada 40ms cambia el ángulo
 long nextServoMotor;    
 int angulo = 0;         // Posición inicial del servo en grados
-int paso = 2;           // Cantidad de grados que el servo se moverá en cada iteración (40ms)
+int paso = 20;           // Cantidad de grados que el servo se moverá en cada iteración (40ms)
 
 // SENSOR DE DISTANCIA ULTRASONIDOS
 const int trigPin = 9; 
 const int echoPin = 6; 
 long nextSensor; 
-const long intervalSensor = 500; // Cada cuanto lee la distancia
+const long intervalSensor = 3000; // Cada cuanto lee la distancia
 long duracionSensor; 
 long distanciaSensor; 
 int joyX = 0; //Pin analogo al que el joystick X está conectado
@@ -48,12 +48,34 @@ const int Tmax = 32;          // Tempertura maxima que no volem superar
 int Tmaxsobrepasada = 0;      // La temperatura màxima ha sigut  sobrepasada
 bool modoAutomatico = true;
 
+// Constantes de Orbita satelite
+const double G = 6.67430e-11;  // Gravitational constant (m^3 kg^-1 s^-2)
+const double M = 5.97219e24;   // Mass of Earth (kg)
+const double R_EARTH = 6371000;  // Radius of Earth (meters)
+const double ALTITUDE = 400000;  // Altitude of satellite above Earth's surface (meters)
+const double EARTH_ROTATION_RATE = 7.2921159e-5;  // Earth's rotational rate (radians/second)
+const unsigned long MILLIS_BETWEEN_UPDATES = 1000; // Time in milliseconds between each orbit simulation update
+const double  TIME_COMPRESSION = 90.0; // Time compression factor (90x)
+
+// Variables orbita satelite
+unsigned long nextUpdate; // Time in milliseconds when the next orbit simulation update should occur
+double real_orbital_period;  // Real orbital period of the satellite (seconds)
+double r;  // Total distance from Earth's center to satellite (meters)
+
 void setup(){
   Serial.begin(9600);
   Serial.println("Empezamos la recepción");
   mySerial.begin(9600);
   dht.begin();
   
+  //Codigo de Orbita
+  unsigned long currentTime = millis();
+  if(currentTime>nextUpdate) {
+      simulate_orbit(currentTime, 0, 0);
+      nextUpdate = currentTime + MILLIS_BETWEEN_UPDATES;
+  }
+  // Fin de codigo de Orbita
+
   pinMode(LedSat, OUTPUT);
   pinMode(LedDatos, OUTPUT);
   
@@ -73,6 +95,14 @@ void setup(){
 }
 
 void loop(){
+    // Codigo Orbita Satelite
+    unsigned long currentTime = millis();
+    if(currentTime>nextUpdate) {
+      simulate_orbit(currentTime, 0, 0);
+      nextUpdate = currentTime + MILLIS_BETWEEN_UPDATES;
+    }
+    // Fin Codigo Orbita satelite
+
   if (millis() >= nextMillisLED){   // Apagar LED de envío después de 1 segundo
     digitalWrite(LedSat, LOW);
   }
@@ -242,4 +272,31 @@ void loop(){
       mySerial.println(" :sensor");
     }
   }
+}
+
+void simulate_orbit(unsigned long millis, double inclination, int ecef) {
+    double time = (millis / 1000) * TIME_COMPRESSION;  // Real orbital time
+    double angle = 2 * PI * (time / real_orbital_period);  // Angle in radians
+    double x = r * cos(angle);  // X-coordinate (meters)
+    double y = r * sin(angle) * cos(inclination);  // Y-coordinate (meters)
+    double z = r * sin(angle) * sin(inclination);  // Z-coordinate (meters)
+
+    if (ecef) {
+        double theta = EARTH_ROTATION_RATE * time;
+        double x_ecef = x * cos(theta) - y * sin(theta);
+        double y_ecef = x * sin(theta) + y * cos(theta);
+        x = x_ecef;
+        y = y_ecef;
+    }
+
+    // Send the data to the serial port
+    Serial.print("Time: ");
+    Serial.print(time);
+    Serial.print(" s | Position: (X: ");
+    Serial.print(x);
+    Serial.print(" m, Y: ");
+    Serial.print(y);
+    Serial.print(" m, Z: ");
+    Serial.print(z);
+    Serial.println(" m)");
 }

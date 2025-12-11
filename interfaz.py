@@ -7,8 +7,287 @@ import threading
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import math
+import time
 import datetime
 import tkinter.scrolledtext as scrolledtext
+import re
+import matplotlib
+import math
+
+
+
+matplotlib.use('TkAgg')
+
+#Grafica Orbita
+# ----------------- Constantes y datos -----------------
+R_EARTH = 6371000  # Constante para la esfera terrestre
+
+# Compilación regex
+regex_posicion = re.compile(r"Position: \(X: ([\d\.-]+) m, Y: ([\d\.-]+) m, Z: ([\d\.-]+) m\)")
+
+# Listas
+x_vals_orbita = []
+y_vals_orbita = []
+z_vals_orbita = []
+
+# Referencias a objetos para la gráfica
+fig_orbita = None
+ax_orbita = None
+orbit_plot = None
+last_point_plot = None
+earth_slice = None
+canvas_orbita = None
+
+ventana_orbita_abierta = False
+
+def draw_earth_slice(z):
+    if abs(z) <= R_EARTH:
+        slice_radius = math.sqrt(R_EARTH*2 - z*2)
+    else:
+        slice_radius = 0
+    circle = plt.Circle((0, 0),
+                        slice_radius,
+                        color='orange',
+                        fill=False,
+                        linestyle='--')
+    return circle
+
+def inicializar_grafica_orbita(parent):
+    """
+    Inicializa la figura, ejes y elementos de la gráfica de órbita.
+    parent: ventana Tkinter donde se incrustará la gráfica.
+    """
+    global fig_orbita, ax_orbita, orbit_plot, last_point_plot, earth_slice, canvas_orbita
+
+    # Crear figura y ejes
+    fig_orbita, ax_orbita = plt.subplots(figsize=(10, 8))
+
+    # 1. Línea de la órbita (línea azul con puntos)
+    orbit_plot, = ax_orbita.plot(
+        [], [],                    # Datos iniciales vacíos
+        'bo-',                     # Formato: puntos azules ('b') con línea ('-')
+        markersize=2,              # Tamaño de los puntos
+        label='Órbita satélite'    # Etiqueta para la leyenda
+    )
+
+    # 2. Último punto (punto rojo más grande)
+    last_point_plot = ax_orbita.scatter(
+        [], [],                    # Posición inicial vacía
+        color='red',               # Color rojo
+        s=50,                      # Tamaño del punto
+        label='Última posición'    # Etiqueta
+    )
+
+    # 3. Círculo de la superficie de la Tierra (fijo)
+    tierra = plt.Circle(
+        (0, 0),                    # Centro en el origen
+        R_EARTH,                   # Radio de la Tierra
+        color='orange',            # Color naranja
+        fill=False,                # Solo borde
+        label='Superficie Tierra'  # Etiqueta
+    )
+    ax_orbita.add_artist(tierra)
+
+    # 4. Círculo del corte inicial (z=0, radio máximo)
+    earth_slice = draw_earth_slice(0)  # Corte en el ecuador
+    ax_orbita.add_artist(earth_slice)
+
+    # 5. Configuración de los ejes
+    ax_orbita.set_xlim(-7e6, 7e6)      # Límites X iniciales (±7 millones de metros)
+    ax_orbita.set_ylim(-7e6, 7e6)      # Límites Y iniciales
+    ax_orbita.set_aspect('equal', 'box')  # Mantiene proporciones iguales
+    ax_orbita.set_xlabel('X (metros)')     # Etiqueta eje X
+    ax_orbita.set_ylabel('Y (metros)')     # Etiqueta eje Y
+    ax_orbita.set_title('Órbita del satélite - Vista desde el polo norte')
+    ax_orbita.grid(True)               # Activa la cuadrícula
+    ax_orbita.legend()                 # Muestra la leyenda
+
+    # 6. Incrustar la figura en Tkinter
+    canvas_orbita = FigureCanvasTkAgg(fig_orbita, master=parent)
+    canvas_orbita.draw()  # Dibuja la figura inicialmente
+    canvas_widget = canvas_orbita.get_tk_widget()
+    canvas_widget.pack(fill="both", expand=True)  # Ocupa todo el espacio disponible
+
+def actualizar_grafica_orbita():
+    """
+    Actualiza todos los elementos de la gráfica de órbita con los datos más recientes.
+    Se ejecuta cada vez que llega una nueva posición del satélite.
+    """
+    global orbit_plot, last_point_plot, earth_slice, canvas_orbita, ax_orbita
+
+    # Verificaciones de seguridad
+    if orbit_plot is None or last_point_plot is None or earth_slice is None:
+        print("Gráfica no inicializada aún")
+        return
+    if len(x_vals_orbita) == 0:
+        print("No hay datos de posición")
+        return
+    if not ventana_orbita_abierta:
+        return
+
+    # 1. Actualizar la línea de la órbita (toda la trayectoria)
+    orbit_plot.set_data(x_vals_orbita, y_vals_orbita)
+
+    # 2. Actualizar el último punto (punto rojo)
+    ultimo_x = x_vals_orbita[-1]
+    ultimo_y = y_vals_orbita[-1]
+    last_point_plot.set_offsets([[ultimo_x, ultimo_y]])
+
+    # 3. Actualizar el círculo de corte de la Tierra
+    ultima_z = z_vals_orbita[-1]
+    earth_slice.remove()  # Elimina el círculo anterior
+    nuevo_slice = draw_earth_slice(ultima_z)  # Crea uno nuevo con la z actual
+    earth_slice = nuevo_slice  # Actualiza la referencia global
+    ax_orbita.add_artist(earth_slice)  # Añade el nuevo círculo al eje
+
+    # 4. Ajustar límites de los ejes si es necesario
+    xlim_actual = ax_orbita.get_xlim()
+    ylim_actual = ax_orbita.get_ylim()
+    
+    # Si el nuevo punto está fuera de los límites actuales, expandir
+    if (abs(ultimo_x) > max(abs(xlim_actual[0]), abs(xlim_actual[1])) or 
+        abs(ultimo_y) > max(abs(ylim_actual[0]), abs(ylim_actual[1]))):
+        
+        # Calcular nuevos límites con un margen del 10%
+        nuevo_xlim = max(abs(xlim_actual[0]), abs(xlim_actual[1]), abs(ultimo_x)) * 1.1
+        nuevo_ylim = max(abs(ylim_actual[0]), abs(ylim_actual[1]), abs(ultimo_y)) * 1.1
+        
+        ax_orbita.set_xlim(-nuevo_xlim, nuevo_xlim)
+        ax_orbita.set_ylim(-nuevo_ylim, nuevo_ylim)
+        
+        print(f"Límites actualizados: X=[{-nuevo_xlim:.0f}, {nuevo_xlim:.0f}], Y=[{-nuevo_ylim:.0f}, {nuevo_ylim:.0f}]")
+
+    # 5. Redibujar la figura en el canvas de Tkinter
+    canvas_orbita.draw()
+
+    # Información de depuración (opcional)
+    print(f"Órbita actualizada: {len(x_vals_orbita)} puntos, última posición (X={ultimo_x:.0f}, Y={ultimo_y:.0f}, Z={ultima_z:.0f})")
+
+
+def mostrar_ventana_orbita():
+    """
+    Crea y muestra la ventana de la gráfica de órbita.
+    Se llama cuando el usuario pulsa el botón "Mostrar órbita".
+    """
+    global ventana_orbita_abierta
+
+    # Evitar abrir múltiples ventanas
+    if ventana_orbita_abierta:
+        print("La ventana de órbita ya está abierta")
+        return
+
+    # Marcar que la ventana está abierta
+    ventana_orbita_abierta = True
+    print("Abriendo ventana de órbita...")
+
+    # Crear la nueva ventana (hija de la ventana principal)
+    ventana_orbita = tk.Toplevel(window)
+    ventana_orbita.title("Gráfica de órbita del satélite")
+    ventana_orbita.geometry("900x700")  # Tamaño recomendado para la gráfica
+    ventana_orbita.resizable(True, True)  # Permitir redimensionar
+
+    # Función para manejar el cierre de la ventana
+    def cerrar_ventana_orbita():
+        global ventana_orbita_abierta
+        ventana_orbita_abierta = False
+        print("Ventana de órbita cerrada")
+        ventana_orbita.destroy()
+
+    # Vincular el cierre de ventana al manejador
+    ventana_orbita.protocol("WM_DELETE_WINDOW", cerrar_ventana_orbita)
+
+    # Configurar la ventana para que la gráfica ocupe todo el espacio
+    ventana_orbita.columnconfigure(0, weight=1)
+    ventana_orbita.rowconfigure(0, weight=1)
+
+    # Inicializar la gráfica dentro de esta ventana
+    inicializar_grafica_orbita(ventana_orbita)
+
+    # Botón opcional para limpiar datos (útil para pruebas)
+    frame_botones = tk.Frame(ventana_orbita)
+    frame_botones.pack(fill="x", padx=5, pady=5)
+    
+    def limpiar_datos():
+        global x_vals_orbita, y_vals_orbita, z_vals_orbita
+        x_vals_orbita.clear()
+        y_vals_orbita.clear()
+        z_vals_orbita.clear()
+        actualizar_grafica_orbita()
+        print("Datos de órbita limpiados")
+
+    btn_limpiar = tk.Button(frame_botones, text="Limpiar órbita", 
+                           command=limpiar_datos, bg="lightcoral")
+    btn_limpiar.pack(side="left", padx=5)
+
+    btn_cerrar = tk.Button(frame_botones, text="Cerrar ventana", 
+                          command=cerrar_ventana_orbita, bg="lightgray")
+    btn_cerrar.pack(side="right", padx=5)
+
+    print("Ventana de órbita creada exitosamente")
+
+def hilo_posicion():
+    """
+    Hilo independiente que lee continuamente del puerto serie buscando datos de posición.
+    NO modifica directamente la GUI, solo añade datos a las listas y programa actualizaciones.
+    """
+    global mySerial, regex_posicion, ventana_orbita_abierta
+    print("Hilo de posición iniciado - escuchando puerto serie...")
+
+    while True:
+        try:
+            # Verificar si hay datos esperando en el puerto serie
+            if mySerial.in_waiting > 0:
+                # Leer una línea completa del puerto serie
+                line = mySerial.readline().decode('utf-8').rstrip()
+                
+                # Buscar patrón de posición del satélite en la línea
+                match = regex_posicion.search(line)
+                
+                if match:
+                    try:
+                        # Extraer las coordenadas X, Y, Z
+                        x = float(match.group(1))  # Grupo 1 = X
+                        y = float(match.group(2))  # Grupo 2 = Y
+                        z = float(match.group(3))  # Grupo 3 = Z
+                        
+                        # AÑADIR A LAS LISTAS GLOBALES (esto es seguro desde cualquier hilo)
+                        x_vals_orbita.append(x)
+                        y_vals_orbita.append(y)
+                        z_vals_orbita.append(z)
+                        
+                        # Mostrar información en consola
+                        print(f"Posición recibida: X={x:.0f}m, Y={y:.0f}m, Z={z:.0f}m")
+                        print(f"Total puntos en órbita: {len(x_vals_orbita)}")
+                        
+                        # SI LA VENTANA ESTÁ ABIERTA, programar actualización en el hilo principal
+                        if ventana_orbita_abierta:
+                            # window.after(0, ...) ejecuta la función en el hilo principal de Tkinter
+                            window.after(0, actualizar_grafica_orbita)
+                        
+                    except ValueError as e:
+                        print(f"Error convirtiendo coordenadas: {e}")
+                        print(f"Línea problemática: '{line}'")
+                        
+                else:
+                    # Línea no contiene datos de posición (puede ser otro tipo de mensaje)
+                    if line.strip():  # Solo si no está vacía
+                        print(f"Datos no reconocidos: '{line}'")
+                        
+            # Pequeña pausa para no saturar el CPU (10ms)
+            time.sleep(0.01)
+            
+        except serial.SerialException as e:
+            print(f"Error de comunicación serie: {e}")
+            time.sleep(1)  # Esperar antes de reintentar
+        except Exception as e:
+            print(f"Error inesperado en hilo_posicion: {e}")
+            time.sleep(0.5)
+
+
+
+
+
+
 
 
 
@@ -33,12 +312,14 @@ mediaT = None #Variable de la media de la temperatura
 temperaturas = []
 eje_x = []
 i = 0
-parar = True  # Empieza parado
+pararTemp = True  # Empieza parado
+pararRad = True  # Empieza parado
 threadRecepcion = None
-periodoTH = 3
+periodoTH = 5
 temperaturas_medias = []
 mensaje = ""  
 
+grafica_activa = None  # Puede ser: temperatura, radar...
 error_activo = False
 
 # ==== FICHEROS DE EVENTOS ====
@@ -86,53 +367,43 @@ def PopUpTemperaturasClick():
 def PopUpObservacionesClick():
     tipofichero = "observaciones.txt"
     PopUp(tipofichero)
-
+# =============================
 
 
 def recepcion():
-    global i, parar, temperaturas, eje_x, mySerial, periodoTH, mensaje, pararRad
-    while parar == False:
+    global i, pararTemp, temperaturas, eje_x, mySerial, periodoTH, mensaje, pararRad
+    mySerial.reset_input_buffer()
+    while (pararTemp == False or pararRad == False):
         if mySerial.in_waiting > 0:
-            line = mySerial.readline().decode('utf-8').rstrip()
+            line = mySerial.readline().decode('utf-8', errors='ignore').rstrip()
             trozos = line.split(':')
-            if trozos[0] == '1':
-                CerrarVentanaError()
+
+            # TEMPERATURA - solo si está activada
+            if trozos[0] == '1' and pararTemp == False:
+                CerrarVentanaError() 
                 try:
                     temperatura = float(trozos[1])
                     eje_x.append(i)
                     temperaturas.append(temperatura)
                     i += periodoTH
 
-
-
                     ax.cla()
                     ax.plot(eje_x, temperaturas, label="Temperatura", color="blue")
-
-
-
                     if len(temperaturas_medias) > 0:
-                        # Dibujar la media solo si hay suficientes datos
                         ax.plot(eje_x[-len(temperaturas_medias):], temperaturas_medias, label="Media", color="orange", linestyle="--")
                     ax.set_xlim(max(0, i-15), i+5)
                     ax.set_ylim(15, 35)
                     ax.set_title('Grafica dinamica Temperatura[ºC] - temps[s]:')
                     ax.legend()
-                    ax.grid(True, which='both', color = "gray", linewidth=0.5)
+                    ax.grid(True, which='both', color="gray", linewidth=0.5)
                     canvas.draw()
-                    
-                    registrar_evento("temperatura", f"Temp:{temperatura:.2f}C Hum:{trozos[2]}")
 
-
-
+                    registrar_evento("temperatura", f"Temp:{temperatura:.2f}C Hum:{trozos[2] if len(trozos) > 2 else 'N/A'}%")
                 except ValueError:
                     print(f"Error lectura temperatura: {trozos[1]}")
-                    trozos = ["0", "Error lectura temperatura"]
-                    
-            if trozos[0] == '0':
-                print(f"Error del sistema: {trozos[1]}")
-                registrar_evento("alarma", trozos[1])
-                AbrirVentanaError(trozos[1])
-            if trozos[0] == '4':
+
+            # MEDIA
+            if trozos[0] == '4' and len(trozos) > 1:
                 try:
                     media = float(trozos[1])
                     temperaturas_medias.append(media)
@@ -140,19 +411,21 @@ def recepcion():
                     print(f"Media recibida: {media:.2f}°C")
                 except:
                     print("Error lectura media")
-                    trozos = ["0", "Error lectura media"]
 
-    while pararRad == False:
-        if mySerial.in_waiting > 0:
-            line = mySerial.readline().decode('utf-8').rstrip()
-            trozos = line.split(':')
-            if trozos[0] == '2':
+            # RADAR - solo si está activado
+            if trozos[0] == '2' and pararRad == False:
                 try:
                     distancia = float(trozos[1])
                     angulo = float(trozos[2])
-                    RadarAutomatico(distancia, angulo)      
+                    RadarAutomatico(distancia, angulo)
                 except (ValueError, IndexError) as e:
                     print(f"Error lectura radar: {e}")
+
+            # ERROR
+            if trozos[0] == '0':
+                print(f"Error del sistema: {trozos[1]}")
+                registrar_evento("alarma", trozos[1])
+                AbrirVentanaError(trozos[1])
 
 
 def ModoAutomaticoClick():
@@ -257,35 +530,43 @@ def dibujar_radar_base():
 
 
 def InicioClick():
-    global parar, threadRecepcion, i, temperaturas, eje_x, mensaje
-   
+    global pararTemp, threadRecepcion, i, temperaturas, eje_x, mensaje, grafica_activa
+    
+    if grafica_activa == "radar":
+        PararClickRad()
+        messagebox.showwarning("Aviso", "Se detuvo el radar para activar temperatura")
+        return
+    
     # Detener el hilo anterior si está corriendo
     if threadRecepcion is not None and threadRecepcion.is_alive():
-        parar = True
+        pararTemp = True
         threadRecepcion.join(timeout=1)
+    
     # Limpiar el buffer serial antes de empezar
-    mySerial.reset_input_buffer()  
-   
+    mySerial.reset_input_buffer()
+    
     # Reiniciar memeorias de datos
-    temperaturas = []  # Vaciar lista de temperaturas
-    eje_x = []         # Vaciar lista de tiempos
-    i = 0              # Reiniciar contador
+    temperaturas = [] # Vaciar lista de temperaturas
+    eje_x = [] # Vaciar lista de tiempos
+    i = 0 # Reiniciar contador
+    
     # Reiniciar grafica
-    ax.cla()           # Limpiar el eje
+    ax.cla() # Limpiar el eje
     ax.set_xlim(0, 100)
     ax.set_ylim(15, 35)
     ax.grid(True, which='both', color = "gray", linewidth=0.5)
     ax.set_title('Grafica dinamica Temperatura[ºC] - temps[s]:')
-    canvas.draw()      # Redibuja la gráfica vacía
-   
+    canvas.draw() # Redibuja la gráfica vacía
+    
     # Enviar comando de inicio al Arduino
-    parar = False
-    mensaje = "3:inicio\n"    
+    pararTemp = False
+    grafica_activa = "temperatura"  
+    mensaje = "3:inicio\n"
     print(mensaje)
     mySerial.write(mensaje.encode('utf-8'))
     calculomediaLabel.config(text="Calculando media en:\n Satélite")
-    registrar_evento("comando", "Inicio")
-   
+    registrar_evento("comando", "Inicio gráfica temperatura")
+    
     # Iniciar recepcion
     threadRecepcion = threading.Thread(target=recepcion)
     threadRecepcion.daemon = True
@@ -295,31 +576,38 @@ def InicioClick():
 
 
 
+
 def PararClick():
-    global parar, mensaje
-    parar = True    
-    mensaje = "3:parar\n"     # Enviar comando al Arduino para que pare de enviar datos
+    global pararTemp, mensaje, grafica_activa
+    
+    pararTemp = True
+    grafica_activa = None  
+    mensaje = "3:parar\n" # Enviar comando al Arduino para que pare de enviar datos
     print(mensaje)
     mySerial.write(mensaje.encode('utf-8'))
-    mySerial.reset_input_buffer()   # Limpiar buffer al parar
-    registrar_evento("comando", "Parar")
+    mySerial.reset_input_buffer() # Limpiar buffer al parar
+    registrar_evento("comando", "Pausa gráfica temperatura")
+
 
 
 
 
 
 def ReanudarClick():
-    global parar, threadRecepcion, mensaje
-    mySerial.reset_input_buffer()   # Limpiar buffer antes de reanudar
-    parar = False
-    mensaje = "3:reanudar\n"  # Enviar comando de reanudar
+    global pararTemp, threadRecepcion, mensaje, grafica_activa
+    
+    mySerial.reset_input_buffer() # Limpiar buffer antes de reanudar
+    pararTemp = False
+    grafica_activa = "temperatura"  
+    mensaje = "3:reanudar\n" # Enviar comando de reanudar
     print(mensaje)
     mySerial.write(mensaje.encode('utf-8'))
-    registrar_evento("comando", "Reanudar")
-   
+    registrar_evento("comando", "Reactivación gráfica temperatura")
+    
     threadRecepcion = threading.Thread(target=recepcion)
     threadRecepcion.daemon = True
     threadRecepcion.start()
+
    
 
 
@@ -338,7 +626,7 @@ def EnviarPeriodoClick(): # SOLUCIONAR QUE NO VA A MES DE 3 SEGONS
     mySerial.write(mensaje.encode('utf-8'))
     periodoTH = int(periodo_sensor/1000)
     messagebox.showinfo("Éxito", f"Período configurado a {periodo_sensor} ms")
-    registrar_evento("comando", f"Cambio de periodo a {periodo_sensor} ms")
+    registrar_evento("comando", f"Cambio de periodo temperatura a {periodo_sensor} ms")
     
        
 def CalcularMediaTSat():
@@ -347,34 +635,49 @@ def CalcularMediaTSat():
     mySerial.write(mensaje.encode('utf-8'))
     mediaLabel.config(text="Media T: \n(calculando...)")
     calculomediaLabel.config(text="Calculando media en:\n Satélite")
-    registrar_evento("comando", "MediaSAT")
+    registrar_evento("comando", "Calculando la media de temperatura en el satelite")
 def CalcularMediaTTER():
     global mensaje
     mensaje = "3:MediaTER\n"
     mySerial.write(mensaje.encode('utf-8'))
     mediaLabel.config(text="Media T:\n (calculando...)")
     calculomediaLabel.config(text="Calculando media en:\n Estación Tierra")
-    registrar_evento("comando", "MediaTER")
+    registrar_evento("comando", "Calculando la media de temperatura en estación de tierra")
 
 def InicioClickRad():
-    global pararRad, threadRecepcion
+    global pararRad, threadRecepcion, grafica_activa
+    
+    
+    if grafica_activa == "temperatura":
+        PararClick()
+        messagebox.showwarning("Aviso", "Se detuvo temperatura para activar radar")
+        return
+    
     if threadRecepcion is not None and threadRecepcion.is_alive():
         pararRad = True
         threadRecepcion.join(timeout=1)
+    
     pararRad = False
-    mensaje = "6:inicio\n"    
+    grafica_activa = "radar"  
+    mensaje = "6:inicio\n"
     print(mensaje)
     mySerial.write(mensaje.encode('utf-8'))
     threadRecepcion = threading.Thread(target=recepcion)
     threadRecepcion.daemon = True
     threadRecepcion.start()
+    registrar_evento("comando", "Inicio gráfica radar")
+
 def PararClickRad():
-    global pararRad, threadRecepcion
-    pararRad = True    
-    mensaje = "6:parar\n"     # Enviar comando al Arduino para que pare de enviar datos
+    global pararRad, threadRecepcion, grafica_activa
+    
+    pararRad = True
+    grafica_activa = None  
+    mensaje = "6:parar\n" # Enviar comando al Arduino para que pare de enviar datos
     print(mensaje)
     mySerial.write(mensaje.encode('utf-8'))
-    mySerial.reset_input_buffer()   # Limpiar buffer al parar
+    mySerial.reset_input_buffer() # Limpiar buffer al parar
+    registrar_evento("comando", "Pausa gráfica radar")
+
 
 def RadarManual():
     global modo_manual, mensaje
@@ -383,7 +686,7 @@ def RadarManual():
     mensaje = "3:RadarManual\n"  # Solo activa modo manual
     mySerial.write(mensaje.encode('utf-8'))
     print("Radar en modo manual")
-    registrar_evento("comando", "RadarManual")
+    registrar_evento("comando", "Radar en modo manual")
 
 
 
@@ -393,6 +696,7 @@ def EnviarServo(valor):
         mensaje = f"3:RadarManual:{valor_int}\n"
         mySerial.write(mensaje.encode('utf-8'))
         print(f"Enviando valor servo: {valor_int}")
+        registrar_evento("comando", f"Cambio valor del servo a: {valor_int}")
 
 # ==== FUNCION ERROR ====
 def AbrirVentanaError(error):
@@ -454,6 +758,7 @@ window.columnconfigure(1, weight=1)
 window.columnconfigure(2, weight=1)
 window.columnconfigure(3, weight=2)
 window.columnconfigure(4, weight=2)
+window.columnconfigure(5, weight=2)
 
 #TITULO
 tituloFrame = Frame(window, width=400, height=120) #Creamos frame con tamaño fijo, donde irá el label
@@ -533,7 +838,7 @@ infoLabel.pack(side=LEFT, padx=5, pady=5)
 
 # Servomotor y ultrasonidos
 ControlRadarFrame = tk.LabelFrame(window, text="Control Radar", font=("Courier", 11, "bold"))
-ControlRadarFrame.grid(row=5, column=3,columnspan=3, padx=3, pady=3, sticky=N + S + E + W)
+ControlRadarFrame.grid(row=5, column=3, rowspan=2, columnspan=3, padx=3, pady=3, sticky=N + S + E + W)
 ControlRadarFrame.columnconfigure(0, weight=1) #Dentro del frame hacemos 2 columnas y 1 fila
 ControlRadarFrame.columnconfigure(1, weight=1)
 ControlRadarFrame.rowconfigure(0, weight=1)
@@ -586,6 +891,10 @@ radar_frame.grid(row=2, column=3, rowspan=3,columnspan=2,padx=1, pady=1, sticky=
 
 radar_canvas = Canvas(radar_frame, width=400, height=300, bg='green')
 radar_canvas.pack(fill=tk.BOTH, expand=True)
+
+InicioButtonOrb = Button(window, text="Inicio", bg='green', fg="white",font=("Arial",20), command=mostrar_ventana_orbita)
+InicioButtonOrb.grid(row=0, column=5, padx=1, pady=1, sticky=N + S + E + W)
+
 
 def on_resize(event): #Cada vez que se redimensiona el canvas, recibe un objeto event con información del nuevo tamaño
     dibujar_radar_base() #Redibuja de cero llamando a esta función
