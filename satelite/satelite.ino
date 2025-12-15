@@ -10,7 +10,7 @@ uint8_t calcularChecksum(const String& mensaje) {
   }
   return checksum;
 }
-bool enviardatos = true; 
+bool enviardatos = false; 
 bool fallodatos = false; 
 bool enviardistancia = false;
 bool enviarorbita = false;
@@ -274,13 +274,13 @@ void loop(){
       }
     }
   }
-    else if ((millis() >= nextMillis2) && (fallodatos == true)){
-    digitalWrite(LedDatos, HIGH); // Enciende LED de error
-    String mensajeErrorDatos = "0:ErrorCapturaDatos";
-    uint8_t checksumErrorDatos = calcularChecksum(mensajeErrorDatos);
-    mySerial.print(mensajeErrorDatos);
-    mySerial.print(":");
-    mySerial.println(checksumErrorDatos);
+  else if ((millis() >= nextMillis2) && (fallodatos == true)){
+  digitalWrite(LedDatos, HIGH); // Enciende LED de error
+  String mensajeErrorDatos = "0:ErrorCapturaDatos";
+  uint8_t checksumErrorDatos = calcularChecksum(mensajeErrorDatos);
+  mySerial.print(mensajeErrorDatos);
+  mySerial.print(":");
+  mySerial.println(checksumErrorDatos);
   }
 
   if ((modoAutomatico == true) && (millis() >= nextServoMotor)) {
@@ -337,21 +337,22 @@ void loop(){
 }
 
 void simulate_orbit(unsigned long millis, double inclination, int ecef) {
-    double time = (millis / 1000.0) * TIME_COMPRESSION;  // Real orbital time
-    double angle = 2 * PI * (time / real_orbital_period);  // Angle in radians
-    double x = r * cos(angle);  // X-coordinate (meters)
-    double y = r * sin(angle) * cos(inclination);  // Y-coordinate (meters)
-    double z = r * sin(angle) * sin(inclination);  // Z-coordinate (meters)
+  double time = (millis / 1000.0) * TIME_COMPRESSION;  // Real orbital time
+  double angle = 2 * PI * (time / real_orbital_period);  // Angle in radians
+  double x = r * cos(angle);  // X-coordinate (meters)
+  double y = r * sin(angle) * cos(inclination);  // Y-coordinate (meters)
+  double z = r * sin(angle) * sin(inclination);  // Z-coordinate (meters)
 
-    if (ecef) {
-        double theta = EARTH_ROTATION_RATE * time;
-        double x_ecef = x * cos(theta) - y * sin(theta);
-        double y_ecef = x * sin(theta) + y * cos(theta);
-        x = x_ecef;
-        y = y_ecef;
-    }
+  if (ecef) {
+    double theta = EARTH_ROTATION_RATE * time;
+    double x_ecef = x * cos(theta) - y * sin(theta);
+    double y_ecef = x * sin(theta) + y * cos(theta);
+    x = x_ecef;
+    y = y_ecef;
+  }
 
-    // Send the data to the serial port with checksum
+  // Send the data to the serial port with checksum
+  if (enviarorbita == true){
     String mensajeOrbita = "9:";
     mensajeOrbita += String(time, 6);  // tiempo con 6 decimales
     mensajeOrbita += ":";
@@ -364,4 +365,5 @@ void simulate_orbit(unsigned long millis, double inclination, int ecef) {
     mySerial.print(mensajeOrbita);
     mySerial.print(":");
     mySerial.println(checksumOrbita);
+  }
 }
