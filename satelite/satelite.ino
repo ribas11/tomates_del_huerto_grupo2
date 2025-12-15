@@ -1,9 +1,19 @@
 //CONEXIONES E INTERVALOS BASE
 #include <SoftwareSerial.h>
 SoftwareSerial mySerial(10, 11); // RX, TX (azul, naranja)
+
+// Función para calcular checksum simple (suma de bytes módulo 256)
+uint8_t calcularChecksum(const String& mensaje) {
+  uint8_t checksum = 0;
+  for (int i = 0; i < mensaje.length(); i++) {
+    checksum += (uint8_t)mensaje.charAt(i);
+  }
+  return checksum;
+}
 bool enviardatos = true; 
 bool fallodatos = false; 
-bool enviardistancia = true;
+bool enviardistancia = false;
+bool enviarorbita = false;
 long nextMillis; // Envia datos
 long nextMillis2; // Error de datos
 long nextMillisLED;
@@ -22,10 +32,10 @@ const int LedDatos = 7; // Error de datos
 //SERVOMOTOR
 #include <Servo.h>     
 Servo myServo;         
-const long intervalServoMotor = 3000; // Cada 40ms cambia el ángulo
+const long intervalServoMotor = 3000; // Cada 3 segundos cambia el ángulo
 long nextServoMotor;    
-int angulo = 0;         // Posición inicial del servo en grados
-int paso = 20;           // Cantidad de grados que el servo se moverá en cada iteración (40ms)
+int angulo = 100;       // Posición inicial del servo en grados (empieza en 100)
+int paso = 20;          // Cantidad de grados que el servo se moverá en cada iteración
 
 // SENSOR DE DISTANCIA ULTRASONIDOS
 const int trigPin = 9; 
@@ -46,7 +56,7 @@ double SumadatosFT;            // Suma de datos finales de temperatura del vecto
 double mediaT = 0;            // Media de la temperatura
 const int Tmax = 32;          // Tempertura maxima que no volem superar
 int Tmaxsobrepasada = 0;      // La temperatura màxima ha sigut  sobrepasada
-bool modoAutomatico = true;
+bool modoAutomatico = false; // Arranca en manual
 
 // Constantes de Orbita satelite
 const double G = 6.67430e-11;  // Gravitational constant (m^3 kg^-1 s^-2)
@@ -54,13 +64,16 @@ const double M = 5.97219e24;   // Mass of Earth (kg)
 const double R_EARTH = 6371000;  // Radius of Earth (meters)
 const double ALTITUDE = 400000;  // Altitude of satellite above Earth's surface (meters)
 const double EARTH_ROTATION_RATE = 7.2921159e-5;  // Earth's rotational rate (radians/second)
-const unsigned long MILLIS_BETWEEN_UPDATES = 1000; // Time in milliseconds between each orbit simulation update
+const unsigned long MILLIS_BETWEEN_UPDATES = 10000; // Time in milliseconds between each orbit simulation update
 const double  TIME_COMPRESSION = 90.0; // Time compression factor (90x)
 
 // Variables orbita satelite
 unsigned long nextUpdate; // Time in milliseconds when the next orbit simulation update should occur
 double real_orbital_period;  // Real orbital period of the satellite (seconds)
 double r;  // Total distance from Earth's center to satellite (meters)
+
+// Prototipo
+void simulate_orbit(unsigned long millis, double inclination, int ecef);
 
 void setup(){
   Serial.begin(9600);
@@ -69,11 +82,10 @@ void setup(){
   dht.begin();
   
   //Codigo de Orbita
-  unsigned long currentTime = millis();
-  if(currentTime>nextUpdate) {
-      simulate_orbit(currentTime, 0, 0);
-      nextUpdate = currentTime + MILLIS_BETWEEN_UPDATES;
-  }
+  nextUpdate = MILLIS_BETWEEN_UPDATES; 
+  r = R_EARTH + ALTITUDE;
+  real_orbital_period = 2 * PI * sqrt(pow(r, 3) / (G * M));
+
   // Fin de codigo de Orbita
 
   pinMode(LedSat, OUTPUT);
@@ -86,7 +98,8 @@ void setup(){
   nextMillis2 = millis() + interval2;
   nextMillisLED = millis();
 
-  myServo.attach(3);         
+  myServo.attach(3);
+  myServo.write(angulo);  // Inicializar servo en 100 grados
   nextServoMotor = millis() + intervalServoMotor;
 
   pinMode(trigPin, OUTPUT);
@@ -97,91 +110,112 @@ void setup(){
 void loop(){
     // Codigo Orbita Satelite
     unsigned long currentTime = millis();
-    if(currentTime>nextUpdate) {
-      simulate_orbit(currentTime, 0, 0);
-      nextUpdate = currentTime + MILLIS_BETWEEN_UPDATES;
+    if (enviarorbita && currentTime > nextUpdate) {
+        simulate_orbit(currentTime, 0, 0);
+        nextUpdate = currentTime + MILLIS_BETWEEN_UPDATES;
     }
     // Fin Codigo Orbita satelite
 
   if (millis() >= nextMillisLED){   // Apagar LED de envío después de 1 segundo
     digitalWrite(LedSat, LOW);
   }
-  if (mySerial.available()) {       // Lee orden del satélite
-    String data = mySerial.readStringUntil('\n'); // Lee orden
+  if (mySerial.available()) {       // Lee orden desde Tierra
+    String data = mySerial.readStringUntil('\n'); // Lee orden completa
     Serial.println(data);
     
     int fin = data.indexOf(':', 0);
+    if (fin == -1) return;  // seguridad
+
     int codigo = data.substring(0, fin).toInt();
     int inicio = fin + 1;
     String orden;
-    
-    if (codigo == 3){               // Código 3: Órdenes de control (inicio, parar, reanudar)
-      fin = data.indexOf('\n', inicio);
-      if (fin == -1) 
-        fin = data.length();
-      orden = data.substring(inicio, fin);
+
+    if (codigo == 3) {               // Código 3: Órdenes de control (inicio, parar, reanudar, órbita, radar modo)
+      // todo lo que hay después del primer ':' es la orden
+      orden = data.substring(inicio);
+      orden.trim();
+
       Serial.print("Orden recibida: ");
       Serial.println(orden);
       
-      if (orden == "reanudar" || orden == "inicio"){
+      if (orden == "reanudar" || orden == "inicio") {
         enviardatos = true;
-        nextMillis = millis() + interval; // Reinicia el temporizador para evitar salto
+        nextMillis = millis() + interval;
       }
-      if (orden == "parar"){
+      else if (orden == "parar") {
         enviardatos = false;
       }
-      if (orden == "MediaSAT"){ //Orden para calcuar media de temperatura
+      else if (orden == "MediaSAT") {
         calcularMtemperatura = true;
       }
-      if (orden == "MediaTER"){ //Orden para calcuar media de temperatura
+      else if (orden == "MediaTER") {
         calcularMtemperatura = false;
       }
-      if (orden.startsWith("RadarAutomatico")){
+      else if (orden == "OrbitaInicio") {
+        enviarorbita = true;
+      }
+      else if (orden == "OrbitaParar") {
+        enviarorbita = false;
+      }
+      else if (orden.startsWith("RadarManual")) {
         modoAutomatico = false;
-        int segundoNum = orden.indexOf(':');
+        // Buscar si hay un valor después de "RadarManual:"
+        // El formato puede ser "RadarManual" o "RadarManual:valor"
+        int segundoNum = orden.indexOf(':', 11); // Buscar después de "RadarManual" (11 caracteres)
         if (segundoNum > 0) {
+          // Hay un valor, actualizar el servo
           int valor = orden.substring(segundoNum + 1).toInt();
           valor = constrain(valor, 0, 180);
+          // Ajustar a saltos de 20° (redondeo al más cercano)
+          valor = ((valor + 10) / 20) * 20;
+          valor = constrain(valor, 0, 180);
           myServo.write(valor);
-          Serial.print("Radar manual con valor: ");
+          angulo = valor; // Actualizar el ángulo actual
+          Serial.print("Radar manual - servo movido a: ");
           Serial.println(valor);
-        
-      }
-      if (orden == "RadarAutomatico"){
-        modoAutomatico = true;
+        } else {
+          // Si no hay valor, solo se activa el modo manual y volver a 100 grados
+          angulo = 100;
+          myServo.write(angulo);
+          Serial.println("Modo manual activado - servo en 100 grados");
         }
       }
+      else if (orden == "RadarAutomatico") {
+        modoAutomatico = true;
+        // Volver a 100 grados al cambiar a automático
+        angulo = 100;
+        myServo.write(angulo);
+        paso = 20; // Reiniciar paso positivo
+        Serial.println("Modo automático activado, servo en 100 grados");
+      }
     }
-    
-    if (codigo == 4){                     // Código 4: Cambiar período
-      fin = data.indexOf(':', inicio);
-      if (fin == -1) 
-        fin = data.length();
-      int nuevoPeriodo = data.substring(inicio, fin).toInt();
-      interval = nuevoPeriodo;
-      Serial.print("Período actualizado a: ");
-      Serial.println(interval);
+    else if (codigo == 4) {          // Código 4: Cambiar período de envío de datos
+      // data: "4:3000"
+      orden = data.substring(inicio);
+      orden.trim();
+      int nuevoPeriodo = orden.toInt();
+      if (nuevoPeriodo > 0) {
+        interval = nuevoPeriodo;
+        Serial.print("Período actualizado a: ");
+        Serial.println(interval);
+      }
     }
-    if (codigo == 6){
-      fin = data.indexOf('\n', inicio);
-      if (fin == -1) 
-        fin = data.length();
-      orden = data.substring(inicio, fin);
+    else if (codigo == 6) {          // Código 6: Control de envío de distancia
+      orden = data.substring(inicio);
+      orden.trim();
       Serial.print("Orden recibida: ");
       Serial.println(orden);
 
-      if (orden == "inicio"){
+      if (orden == "inicio") {
         enviardistancia = true;
-        nextMillis = millis() + interval; // Reinicia el temporizador para evitar salto
+        nextMillis = millis() + interval;
       }
-      if (orden == "parar"){
+      else if (orden == "parar") {
         enviardistancia = false;
       }
-
-
     }
   }
-  
+ 
   if (enviardatos == true && millis() >= nextMillis){
     digitalWrite(LedSat, HIGH); // Enciende LED de envío
     nextMillisLED = millis() + intervalLED; // LED se apagará 
@@ -196,10 +230,16 @@ void loop(){
     else if (!(isnan(hum) || isnan(temp))){ // Capta datos correctamente
       fallodatos = false;
       digitalWrite(LedDatos, LOW); // Apaga LED de error
-      mySerial.print("1:"); 
-      mySerial.print(temp);
+      // Crear mensaje sin checksum
+      String mensaje = "1:";
+      mensaje += String(temp);
+      mensaje += ":";
+      mensaje += String(hum);
+      // Calcular y agregar checksum
+      uint8_t checksum = calcularChecksum(mensaje);
+      mySerial.print(mensaje);
       mySerial.print(":");
-      mySerial.println(hum);
+      mySerial.println(checksum);
       
       if (calcularMtemperatura == true){
         sumadatosT[i] = temp;
@@ -221,27 +261,40 @@ void loop(){
           else {
             Tmaxsobrepasada = 1;
           }
-          // Envia media de temperatura
-          mySerial.print("4:"); 
-          mySerial.print(mediaT);
+          // Envia media de temperatura con checksum
+          String mensajeMedia = "4:";
+          mensajeMedia += String(mediaT);
+          mensajeMedia += ":";
+          mensajeMedia += String(Tmaxsobrepasada);
+          uint8_t checksumMedia = calcularChecksum(mensajeMedia);
+          mySerial.print(mensajeMedia);
           mySerial.print(":");
-          mySerial.println(Tmaxsobrepasada); 
+          mySerial.println(checksumMedia); 
         }
       }
     }
   }
-  else if ((millis() >= nextMillis2) && (fallodatos == true)){
+    else if ((millis() >= nextMillis2) && (fallodatos == true)){
     digitalWrite(LedDatos, HIGH); // Enciende LED de error
-    mySerial.println("0:ErrorCapturaDatos");
+    String mensajeErrorDatos = "0:ErrorCapturaDatos";
+    uint8_t checksumErrorDatos = calcularChecksum(mensajeErrorDatos);
+    mySerial.print(mensajeErrorDatos);
+    mySerial.print(":");
+    mySerial.println(checksumErrorDatos);
   }
 
-  if (millis() >= nextServoMotor) {
+  if ((modoAutomatico == true) && (millis() >= nextServoMotor)) {
     nextServoMotor = millis() + intervalServoMotor;
     myServo.write(angulo);
     angulo = angulo + paso;
 
-    if (angulo >= 180 || angulo <= 0) {
-      paso = -paso; // Cambiamos el signo del paso para invertir el movimiento
+    // Limitar el rango: de 100 a 180 grados, luego vuelve a 100
+    if (angulo >= 180) {
+      angulo = 180;
+      paso = -paso; // Cambiar dirección hacia abajo
+    } else if (angulo <= 100) {
+      angulo = 100;
+      paso = -paso; // Cambiar dirección hacia arriba
     }
   }
 
@@ -261,21 +314,30 @@ void loop(){
     if ((duracionSensor > 0) && (enviardistancia == true)) { // Si ha llegado el pulso en el tiempo establecido
       distanciaSensor = duracionSensor * 0.034 / 2; // Distancia = tiempo * velocidad del sonido / 2
       
-      mySerial.print("2"); // Envia 2:distancia:angulo
+      // Envia 2:distancia:angulo con checksum
+      String mensajeRadar = "2:";
+      mensajeRadar += String(distanciaSensor);
+      mensajeRadar += ":";
+      mensajeRadar += String(angulo);
+      uint8_t checksumRadar = calcularChecksum(mensajeRadar);
+      mySerial.print(mensajeRadar);
       mySerial.print(":");
-      mySerial.print(distanciaSensor);
-      mySerial.print(":");
-      mySerial.println(angulo);
+      mySerial.println(checksumRadar);
     } 
-    else { // Si no se ha detectado la llegada del pulso
+    else if (enviardistancia == true) { // Si no se ha detectado la llegada del pulso
       distanciaSensor = 0; // El 0 para nosotros indica error
-      mySerial.println(" :sensor");
+      // Enviar error en formato correcto: código 0 para errores
+      String mensajeError = "0:ErrorSensorDistancia";
+      uint8_t checksumError = calcularChecksum(mensajeError);
+      mySerial.print(mensajeError);
+      mySerial.print(":");
+      mySerial.println(checksumError);
     }
   }
 }
 
 void simulate_orbit(unsigned long millis, double inclination, int ecef) {
-    double time = (millis / 1000) * TIME_COMPRESSION;  // Real orbital time
+    double time = (millis / 1000.0) * TIME_COMPRESSION;  // Real orbital time
     double angle = 2 * PI * (time / real_orbital_period);  // Angle in radians
     double x = r * cos(angle);  // X-coordinate (meters)
     double y = r * sin(angle) * cos(inclination);  // Y-coordinate (meters)
@@ -289,14 +351,17 @@ void simulate_orbit(unsigned long millis, double inclination, int ecef) {
         y = y_ecef;
     }
 
-    // Send the data to the serial port
-    Serial.print("Time: ");
-    Serial.print(time);
-    Serial.print(" s | Position: (X: ");
-    Serial.print(x);
-    Serial.print(" m, Y: ");
-    Serial.print(y);
-    Serial.print(" m, Z: ");
-    Serial.print(z);
-    Serial.println(" m)");
+    // Send the data to the serial port with checksum
+    String mensajeOrbita = "9:";
+    mensajeOrbita += String(time, 6);  // tiempo con 6 decimales
+    mensajeOrbita += ":";
+    mensajeOrbita += String(x, 1);     // coordenadas con 1 decimal (mejor para regex)
+    mensajeOrbita += ":";
+    mensajeOrbita += String(y, 1);
+    mensajeOrbita += ":";
+    mensajeOrbita += String(z, 1);
+    uint8_t checksumOrbita = calcularChecksum(mensajeOrbita);
+    mySerial.print(mensajeOrbita);
+    mySerial.print(":");
+    mySerial.println(checksumOrbita);
 }

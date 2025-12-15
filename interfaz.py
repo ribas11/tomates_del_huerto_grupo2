@@ -135,7 +135,11 @@ def actualizar_grafica_orbita():
 
     # 3. Actualizar el círculo de corte de la Tierra
     ultima_z = z_vals_orbita[-1]
-    earth_slice.remove()  # Elimina el círculo anterior
+    try:
+        if earth_slice is not None:
+            earth_slice.remove()  # Elimina el círculo anterior si existe
+    except:
+        pass  # Si falla, continuar
     nuevo_slice = draw_earth_slice(ultima_z)  # Crea uno nuevo con la z actual
     earth_slice = nuevo_slice  # Actualiza la referencia global
     ax_orbita.add_artist(earth_slice)  # Añade el nuevo círculo al eje
@@ -190,6 +194,11 @@ def mostrar_ventana_orbita():
     def cerrar_ventana_orbita():
         global ventana_orbita_abierta
         ventana_orbita_abierta = False
+        # Enviar comando para parar la órbita
+        mensaje = "3:OrbitaParar\n"
+        mySerial.write(mensaje.encode('utf-8'))
+        print("Comando enviado: parar órbita")
+        registrar_evento("comando", "OrbitaParar")
         print("Ventana de órbita cerrada")
         ventana_orbita.destroy()
 
@@ -214,6 +223,26 @@ def mostrar_ventana_orbita():
         z_vals_orbita.clear()
         actualizar_grafica_orbita()
         print("Datos de órbita limpiados")
+    
+    def iniciar_orbita():
+        mensaje = "3:OrbitaInicio\n"
+        mySerial.write(mensaje.encode('utf-8'))
+        print("Comando enviado: iniciar órbita")
+        registrar_evento("comando", "OrbitaInicio")
+    
+    def parar_orbita():
+        mensaje = "3:OrbitaParar\n"
+        mySerial.write(mensaje.encode('utf-8'))
+        print("Comando enviado: parar órbita")
+        registrar_evento("comando", "OrbitaParar")
+
+    btn_iniciar = tk.Button(frame_botones, text="Iniciar órbita", 
+                           command=iniciar_orbita, bg="green", fg="white")
+    btn_iniciar.pack(side="left", padx=5)
+    
+    btn_parar = tk.Button(frame_botones, text="Parar órbita", 
+                         command=parar_orbita, bg="red", fg="white")
+    btn_parar.pack(side="left", padx=5)
 
     btn_limpiar = tk.Button(frame_botones, text="Limpiar órbita", 
                            command=limpiar_datos, bg="lightcoral")
@@ -223,6 +252,9 @@ def mostrar_ventana_orbita():
                           command=cerrar_ventana_orbita, bg="lightgray")
     btn_cerrar.pack(side="right", padx=5)
 
+    # Enviar comando para iniciar la órbita al abrir la ventana
+    iniciar_orbita()
+    
     print("Ventana de órbita creada exitosamente")
 
 def hilo_posicion():
@@ -238,40 +270,40 @@ def hilo_posicion():
             # Verificar si hay datos esperando en el puerto serie
             if mySerial.in_waiting > 0:
                 # Leer una línea completa del puerto serie
-                line = mySerial.readline().decode('utf-8').rstrip()
+                line = mySerial.readline().decode('utf-8', errors='ignore').rstrip()
                 
-                # Buscar patrón de posición del satélite en la línea
-                match = regex_posicion.search(line)
-                
-                if match:
-                    try:
-                        # Extraer las coordenadas X, Y, Z
-                        x = float(match.group(1))  # Grupo 1 = X
-                        y = float(match.group(2))  # Grupo 2 = Y
-                        z = float(match.group(3))  # Grupo 3 = Z
-                        
-                        # AÑADIR A LAS LISTAS GLOBALES (esto es seguro desde cualquier hilo)
-                        x_vals_orbita.append(x)
-                        y_vals_orbita.append(y)
-                        z_vals_orbita.append(z)
-                        
-                        # Mostrar información en consola
-                        print(f"Posición recibida: X={x:.0f}m, Y={y:.0f}m, Z={z:.0f}m")
-                        print(f"Total puntos en órbita: {len(x_vals_orbita)}")
-                        
-                        # SI LA VENTANA ESTÁ ABIERTA, programar actualización en el hilo principal
-                        if ventana_orbita_abierta:
-                            # window.after(0, ...) ejecuta la función en el hilo principal de Tkinter
-                            window.after(0, actualizar_grafica_orbita)
-                        
-                    except ValueError as e:
-                        print(f"Error convirtiendo coordenadas: {e}")
-                        print(f"Línea problemática: '{line}'")
-                        
-                else:
-                    # Línea no contiene datos de posición (puede ser otro tipo de mensaje)
-                    if line.strip():  # Solo si no está vacía
-                        print(f"Datos no reconocidos: '{line}'")
+                # Solo procesar líneas que contengan "Position:" (datos de órbita)
+                if "Position:" in line:
+                    # Buscar patrón de posición del satélite en la línea
+                    match = regex_posicion.search(line)
+                    
+                    if match:
+                        try:
+                            # Extraer las coordenadas X, Y, Z
+                            x = float(match.group(1))  # Grupo 1 = X
+                            y = float(match.group(2))  # Grupo 2 = Y
+                            z = float(match.group(3))  # Grupo 3 = Z
+                            
+                            # AÑADIR A LAS LISTAS GLOBALES (esto es seguro desde cualquier hilo)
+                            x_vals_orbita.append(x)
+                            y_vals_orbita.append(y)
+                            z_vals_orbita.append(z)
+                            
+                            # Mostrar información en consola
+                            print(f"Posición recibida: X={x:.0f}m, Y={y:.0f}m, Z={z:.0f}m")
+                            print(f"Total puntos en órbita: {len(x_vals_orbita)}")
+                            
+                            # SI LA VENTANA ESTÁ ABIERTA, programar actualización en el hilo principal
+                            if ventana_orbita_abierta:
+                                # window.after(0, ...) ejecuta la función en el hilo principal de Tkinter
+                                window.after(0, actualizar_grafica_orbita)
+                            
+                        except ValueError as e:
+                            # Ignorar errores de conversión silenciosamente (datos corruptos)
+                            pass
+                    # Si no coincide con el patrón, ignorar silenciosamente (probablemente corrupto)
+                # Si la línea no contiene "Position:", la ignoramos silenciosamente
+                # (será procesada por recepcion() si corresponde)
                         
             # Pequeña pausa para no saturar el CPU (10ms)
             time.sleep(0.01)
@@ -279,6 +311,9 @@ def hilo_posicion():
         except serial.SerialException as e:
             print(f"Error de comunicación serie: {e}")
             time.sleep(1)  # Esperar antes de reintentar
+        except UnicodeDecodeError:
+            # Datos corruptos por LoRa, ignorar silenciosamente
+            pass
         except Exception as e:
             print(f"Error inesperado en hilo_posicion: {e}")
             time.sleep(0.5)
@@ -291,9 +326,24 @@ def hilo_posicion():
 
 
 
-device = 'COM5'
-mySerial = serial.Serial(device, 9600)
+# device = 'COM5'
+# mySerial = serial.Serial(device, 9600)
 
+device = "COM5"
+try:
+    mySerial = serial.Serial(device, 9600)
+except:
+    print("⚠ No se encontró el puerto COM5. Ejecutando en modo SIMULACIÓN.")
+    class SerialFake:
+        def init(self):
+            self.in_waiting = 0
+        def readline(self):
+            return b""
+        def write(self, x):
+            print("SIMULACIÓN -> Arduino recibiría:", x.decode().strip())
+        def reset_input_buffer(self):
+            pass
+    mySerial = SerialFake()
 
 
 # Configurar la figura y el eje para la gráfica
@@ -375,14 +425,38 @@ def recepcion():
     mySerial.reset_input_buffer()
     while (pararTemp == False or pararRad == False):
         if mySerial.in_waiting > 0:
-            line = mySerial.readline().decode('utf-8', errors='ignore').rstrip()
+            try:
+                line = mySerial.readline().decode('utf-8', errors='ignore').rstrip()
+                print(line)
+            except:
+                continue  # Si hay error de decodificación, ignorar la línea
+            
+            # Ignorar líneas vacías o muy cortas (probablemente corruptas)
+            if len(line) < 2:
+                continue
+            
+            # Ignorar líneas de órbita (son procesadas por hilo_posicion)
+            if "Position:" in line:
+                continue
+            
+            # Validar que la línea comienza con un dígito (código válido)
+            if not line[0].isdigit():
+                continue
+            
             trozos = line.split(':')
+            
+            # Validar que hay al menos un código y un valor
+            if len(trozos) < 2:
+                continue
 
             # TEMPERATURA - solo si está activada
-            if trozos[0] == '1' and pararTemp == False:
+            if trozos[0] == '1' and pararTemp == False and len(trozos) >= 3:
                 CerrarVentanaError() 
                 try:
                     temperatura = float(trozos[1])
+                    # Validar que la temperatura esté en un rango razonable (-50 a 100°C)
+                    if temperatura < -50 or temperatura > 100:
+                        continue  # Ignorar datos fuera de rango (probablemente corruptos)
                     eje_x.append(i)
                     temperaturas.append(temperatura)
                     i += periodoTH
@@ -399,42 +473,84 @@ def recepcion():
                     canvas.draw()
 
                     registrar_evento("temperatura", f"Temp:{temperatura:.2f}C Hum:{trozos[2] if len(trozos) > 2 else 'N/A'}%")
-                except ValueError:
-                    print(f"Error lectura temperatura: {trozos[1]}")
+                except (ValueError, IndexError):
+                    # Ignorar datos corruptos silenciosamente
+                    continue
 
             # MEDIA
-            if trozos[0] == '4' and len(trozos) > 1:
+            if trozos[0] == '4' and len(trozos) >= 2:
                 try:
                     media = float(trozos[1])
+                    # Validar que la media esté en un rango razonable
+                    if media < -50 or media > 100:
+                        continue  # Ignorar datos fuera de rango
                     temperaturas_medias.append(media)
                     mediaLabel.config(text=f"Media T:\n{media:.2f} °C")
                     print(f"Media recibida: {media:.2f}°C")
-                except:
-                    print("Error lectura media")
+                except (ValueError, IndexError):
+                    # Ignorar datos corruptos silenciosamente
+                    continue
 
             # RADAR - solo si está activado
-            if trozos[0] == '2' and pararRad == False:
+            if trozos[0] == '2' and pararRad == False and len(trozos) >= 3:
                 try:
                     distancia = float(trozos[1])
                     angulo = float(trozos[2])
+                    # Validar rangos razonables
+                    if distancia < 0 or distancia > 500 or angulo < 0 or angulo > 180:
+                        continue  # Ignorar datos fuera de rango
                     RadarAutomatico(distancia, angulo)
-                except (ValueError, IndexError) as e:
-                    print(f"Error lectura radar: {e}")
+                except (ValueError, IndexError):
+                    # Ignorar datos corruptos silenciosamente
+                    continue
 
             # ERROR
-            if trozos[0] == '0':
-                print(f"Error del sistema: {trozos[1]}")
-                registrar_evento("alarma", trozos[1])
-                AbrirVentanaError(trozos[1])
+            if trozos[0] == '0' and len(trozos) >= 2:
+                try:
+                    error_msg = trozos[1] if len(trozos) > 1 else "Error desconocido"
+                    # Validar que el mensaje de error sea exactamente uno de los errores conocidos
+                    # Esto previene mostrar mensajes corruptos por LoRa
+                    errores_validos = ["ErrorComunicaciones", "ErrorCapturaDatos", "ErrorSensorDistancia"]
+                    error_valido = False
+                    
+                    # Verificar si el mensaje coincide exactamente con algún error conocido
+                    for error_conocido in errores_validos:
+                        if error_msg == error_conocido:
+                            error_valido = True
+                            break
+                    
+                    # También verificar si el mensaje contiene el error conocido (para tolerar pequeñas corrupciones)
+                    if not error_valido:
+                        for error_conocido in errores_validos:
+                            # Verificar si el mensaje es similar al error conocido (tolerar hasta 2 caracteres diferentes)
+                            if len(error_msg) >= len(error_conocido) - 2 and len(error_msg) <= len(error_conocido) + 2:
+                                # Verificar que contenga la mayoría de los caracteres del error conocido
+                                coincidencias = sum(1 for c in error_conocido if c in error_msg)
+                                if coincidencias >= len(error_conocido) * 0.7:  # Al menos 70% de coincidencia
+                                    error_valido = True
+                                    error_msg = error_conocido  # Usar el error conocido en lugar del corrupto
+                                    break
+                    
+                    if error_valido:
+                        print(f"Error del sistema: {error_msg}")
+                        registrar_evento("alarma", error_msg)
+                        # Solo mostrar ventana si no es ErrorComunicaciones (ya que se repite mucho)
+                        # o si es otro tipo de error más crítico
+                        if error_msg != "ErrorComunicaciones":
+                            AbrirVentanaError(error_msg)
+                        # Para ErrorComunicaciones, solo registrar en el archivo, no mostrar ventana popup
+                except:
+                    pass  # Ignorar errores corruptos silenciosamente
 
 
 def ModoAutomaticoClick():
-    global modo_manual, mensaje
+    global modo_manual, mensaje, valor_servo
     modo_manual = False
+    valor_servo.set(100)  # Volver el deslizante a 100 grados
     control_deslizante.config(state="disabled")  # Desactivar slider
     mensaje = "3:RadarAutomatico\n"
     mySerial.write(mensaje.encode('utf-8'))
-    print("Radar en modo automático")
+    print("Radar en modo automático - deslizante en 100 grados")
     registrar_evento("comando", "RadarAutomatico")
 
 
@@ -680,12 +796,13 @@ def PararClickRad():
 
 
 def RadarManual():
-    global modo_manual, mensaje
+    global modo_manual, mensaje, valor_servo
     modo_manual = True
+    valor_servo.set(100)  # Volver el deslizante a 100 grados
     control_deslizante.config(state="normal")  # Activar slider
-    mensaje = "3:RadarManual\n"  # Solo activa modo manual
+    mensaje = "3:RadarManual\n"  # Solo activa modo manual (servo volverá a 100)
     mySerial.write(mensaje.encode('utf-8'))
-    print("Radar en modo manual")
+    print("Radar en modo manual - deslizante en 100 grados")
     registrar_evento("comando", "Radar en modo manual")
 
 
@@ -741,168 +858,185 @@ def RegistrarObservacion():
     registrar_evento("observacion", observacion)
     ObservacionesEntry.delete(0, tk.END)
 
+ventana_temp = None
+ventana_radar = None
+ventana_extra = None
+
+
+def construir_ventana_temperatura():
+    """Crea la ventana de temperatura con gráfica y controles."""
+    global ventana_temp, mediaLabel, calculomediaLabel, periodoEntry, canvas
+
+    if ventana_temp is not None and tk.Toplevel.winfo_exists(ventana_temp):
+        ventana_temp.lift()
+        return
+
+    ventana_temp = tk.Toplevel(window)
+    ventana_temp.title("Temperatura y humedad")
+    ventana_temp.geometry("1100x650")
+    ventana_temp.configure(bg="#f5f7fb")
+
+    ventana_temp.columnconfigure(0, weight=1)
+    ventana_temp.columnconfigure(1, weight=1)
+    ventana_temp.rowconfigure(0, weight=3)
+    ventana_temp.rowconfigure(1, weight=1)
+    ventana_temp.rowconfigure(2, weight=1)
+    ventana_temp.rowconfigure(3, weight=1)
+
+    graph_frame = tk.LabelFrame(ventana_temp, text="Gráfica temperatura en vivo", font=("Courier", 15, "italic"))
+    graph_frame.grid(row=0, column=0, columnspan=2, padx=8, pady=8, sticky="nsew")
+    canvas = FigureCanvasTkAgg(fig, master=graph_frame)
+    canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+    botones_temp = tk.LabelFrame(ventana_temp, text="Control de temperatura", font=("Courier", 14, "bold"))
+    botones_temp.grid(row=1, column=0, columnspan=2, padx=8, pady=4, sticky="nsew")
+    botones_temp.grid_columnconfigure((0, 1, 2), weight=1)
+    tk.Button(botones_temp, text="Inicio", bg='green', fg="white", font=("Arial", 18), command=InicioClick).grid(row=0, column=0, padx=6, pady=6, sticky="nsew")
+    tk.Button(botones_temp, text="Parar", bg='red', fg="white", font=("Arial", 18), command=PararClick).grid(row=0, column=1, padx=6, pady=6, sticky="nsew")
+    tk.Button(botones_temp, text="Reanudar", bg='orange', fg="white", font=("Arial", 18), command=ReanudarClick).grid(row=0, column=2, padx=6, pady=6, sticky="nsew")
+
+    medias_frame = tk.LabelFrame(ventana_temp, text="Medias", font=("Courier", 14, "bold"))
+    medias_frame.grid(row=2, column=0, padx=8, pady=4, sticky="nsew")
+    medias_frame.grid_columnconfigure((0, 1), weight=1)
+    mediaLabel = tk.Label(medias_frame, text="Media T: --- °C", font=("Courier", 18), fg="blue")
+    mediaLabel.grid(row=0, column=0, padx=6, pady=6, sticky="nsew")
+    calculomediaLabel = tk.Label(medias_frame, text="Calculando media en:\n ---", font=("Courier", 15), fg="black")
+    calculomediaLabel.grid(row=0, column=1, padx=6, pady=6, sticky="nsew")
+    tk.Button(medias_frame, text="Media en satélite", bg='purple', fg='white', font=("Arial", 14), command=CalcularMediaTSat).grid(row=1, column=0, padx=6, pady=6, sticky="nsew")
+    tk.Button(medias_frame, text="Media en tierra", bg='purple', fg='white', font=("Arial", 14), command=CalcularMediaTTER).grid(row=1, column=1, padx=6, pady=6, sticky="nsew")
+
+    periodoFrame = tk.LabelFrame(ventana_temp, text="Configuración del período (ms)", font=("Courier", 14, "bold"))
+    periodoFrame.grid(row=2, column=1, padx=8, pady=4, sticky="nsew")
+    periodoFrame.grid_columnconfigure((0, 1, 2), weight=1)
+    tk.Label(periodoFrame, text="Período:", font=("Courier", 11)).grid(row=0, column=0, padx=4, pady=6, sticky="e")
+    periodoEntry = tk.Entry(periodoFrame, font=("Courier", 11))
+    periodoEntry.insert(0, "3000")
+    periodoEntry.grid(row=0, column=1, padx=4, pady=6, sticky="we")
+    tk.Button(periodoFrame, text="Enviar", bg='blue', fg="white", command=EnviarPeriodoClick).grid(row=0, column=2, padx=4, pady=6, sticky="we")
+    tk.Label(periodoFrame, text="Ej: 1000 ms = 1 s", font=("Courier", 9, "italic")).grid(row=1, column=0, columnspan=3, padx=4, pady=4)
+
+    def cerrar():
+        ventana_temp.destroy()
+    ventana_temp.protocol("WM_DELETE_WINDOW", cerrar)
+
+
+def construir_ventana_radar():
+    """Crea la ventana del radar con controles y canvas."""
+    global ventana_radar, radar_canvas, control_deslizante, valor_servo
+
+    if ventana_radar is not None and tk.Toplevel.winfo_exists(ventana_radar):
+        ventana_radar.lift()
+        return
+
+    ventana_radar = tk.Toplevel(window)
+    ventana_radar.title("Radar del satélite")
+    ventana_radar.geometry("1000x650")
+    ventana_radar.configure(bg="#f5f7fb")
+    ventana_radar.columnconfigure(0, weight=1)
+    ventana_radar.columnconfigure(1, weight=1)
+    ventana_radar.rowconfigure(0, weight=2)
+    ventana_radar.rowconfigure(1, weight=1)
+    ventana_radar.rowconfigure(2, weight=1)
+
+    radar_frame = tk.LabelFrame(ventana_radar, text="Radar", font=("Courier", 15, "italic"))
+    radar_frame.grid(row=0, column=0, columnspan=2, padx=8, pady=8, sticky="nsew")
+    radar_canvas = Canvas(radar_frame, width=400, height=300, bg='green')
+    radar_canvas.pack(fill=tk.BOTH, expand=True)
+
+    botones_radar = tk.LabelFrame(ventana_radar, text="Control radar", font=("Courier", 14, "bold"))
+    botones_radar.grid(row=1, column=0, columnspan=2, padx=8, pady=4, sticky="nsew")
+    botones_radar.grid_columnconfigure((0, 1), weight=1)
+    tk.Button(botones_radar, text="Inicio", bg='green', fg="white", font=("Arial", 18), command=InicioClickRad).grid(row=0, column=0, padx=6, pady=6, sticky="nsew")
+    tk.Button(botones_radar, text="Parar", bg='red', fg="white", font=("Arial", 18), command=PararClickRad).grid(row=0, column=1, padx=6, pady=6, sticky="nsew")
+
+    control_frame = tk.LabelFrame(ventana_radar, text="Modo servo", font=("Courier", 14, "bold"))
+    control_frame.grid(row=2, column=0, columnspan=2, padx=8, pady=4, sticky="nsew")
+    control_frame.grid_columnconfigure((0, 1), weight=1)
+    valor_servo = tk.IntVar(value=100)
+    control_deslizante = tk.Scale(control_frame, from_=0, to=180, orient=tk.HORIZONTAL, resolution=1,
+                                  variable=valor_servo, length=300, command=EnviarServo, state="disabled")
+    control_deslizante.grid(row=0, column=0, columnspan=2, padx=6, pady=6, sticky="nsew")
+    tk.Button(control_frame, text="Radar automático", bg='blue', fg="white", command=ModoAutomaticoClick).grid(row=1, column=0, padx=6, pady=6, sticky="nsew")
+    tk.Button(control_frame, text="Radar manual", bg='orange', fg="white", command=RadarManual).grid(row=1, column=1, padx=6, pady=6, sticky="nsew")
+
+    def on_resize(event):
+        dibujar_radar_base()
+
+    radar_canvas.bind("<Configure>", on_resize)
+
+    def cerrar():
+        if not pararRad:
+            PararClickRad()
+        ventana_radar.destroy()
+    ventana_radar.protocol("WM_DELETE_WINDOW", cerrar)
+    dibujar_radar_base()
+
+
+def construir_ventana_extra():
+    """Ventana de la función extra (placeholder)."""
+    global ventana_extra
+    if ventana_extra is not None and tk.Toplevel.winfo_exists(ventana_extra):
+        ventana_extra.lift()
+        return
+    ventana_extra = tk.Toplevel(window)
+    ventana_extra.title("Funcionalidad extra")
+    ventana_extra.geometry("600x400")
+    tk.Label(ventana_extra, text="Contenido pendiente de definir", font=("Arial", 16)).pack(expand=True, fill="both", padx=20, pady=20)
 
 
 # ===== VENTANA PRINCIPAL =====
 window = Tk()
-window.geometry("1000x450")
+window.geometry("1200x700")
+window.configure(bg="#e9edf5")
 window.rowconfigure(0, weight=1)
-window.rowconfigure(1, weight=1)
-window.rowconfigure(2, weight=1)  
-window.rowconfigure(3, weight=1)
-window.rowconfigure(4, weight=1)
-window.rowconfigure(5, weight=1)
-window.rowconfigure(6, weight=1)
+window.rowconfigure(1, weight=2)
+window.rowconfigure(2, weight=1)
 window.columnconfigure(0, weight=1)
-window.columnconfigure(1, weight=1)
-window.columnconfigure(2, weight=1)
-window.columnconfigure(3, weight=2)
-window.columnconfigure(4, weight=2)
-window.columnconfigure(5, weight=2)
 
-#TITULO
-tituloFrame = Frame(window, width=400, height=120) #Creamos frame con tamaño fijo, donde irá el label
-tituloFrame.grid(row=0, column=0, columnspan=3, padx=3, pady=3)
-tituloFrame.grid_propagate(False)   #Evitamos que el tamaño cambie por el contenido
+tituloFrame = Frame(window, bg="#0b1c33")
+tituloFrame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
+tituloLabel = Label(tituloFrame, text="Mesa de Control - Versión 3", font=("Helvetica", 38, "bold"), fg="white", bg="#0b1c33")
+tituloLabel.pack(expand=True, fill="both", pady=10)
 
-# Label dentro del frame (puede tener la letra grande sin expandir nada)
-tituloLabel = Label(tituloFrame, text="Versión 3 \n Mesa de Control", font=("Courier", 40, "italic"))
-tituloLabel.pack(expand=True, fill="both")
+botonera = tk.Frame(window, bg="#e9edf5")
+botonera.grid(row=1, column=0, padx=10, pady=5, sticky="nsew")
+for c in range(4):
+    botonera.columnconfigure(c, weight=1)
+btn_temp = tk.Button(botonera, text="Temperatura", font=("Arial", 20, "bold"), bg="#1f77b4", fg="white", command=construir_ventana_temperatura)
+btn_temp.grid(row=0, column=0, padx=10, pady=10, ipadx=10, ipady=20, sticky="nsew")
+btn_radar = tk.Button(botonera, text="Radar", font=("Arial", 20, "bold"), bg="#2ca02c", fg="white", command=construir_ventana_radar)
+btn_radar.grid(row=0, column=1, padx=10, pady=10, ipadx=10, ipady=20, sticky="nsew")
+btn_posicion = tk.Button(botonera, text="Posición", font=("Arial", 20, "bold"), bg="#ff7f0e", fg="white", command=mostrar_ventana_orbita)
+btn_posicion.grid(row=0, column=2, padx=10, pady=10, ipadx=10, ipady=20, sticky="nsew")
+btn_extra = tk.Button(botonera, text="Extra", font=("Arial", 20, "bold"), bg="#8c564b", fg="white", command=construir_ventana_extra)
+btn_extra.grid(row=0, column=3, padx=10, pady=10, ipadx=10, ipady=20, sticky="nsew")
 
-ControlRadarFrame = tk.LabelFrame(window, text="Controlar radar", font=("Courier", 11, "bold"))
-ControlRadarFrame.grid(row=2, column=0, columnspan=3, padx=3, pady=3, sticky=N + S + E + W)
+panel_registros = tk.Frame(window, bg="#e9edf5")
+panel_registros.grid(row=2, column=0, padx=10, pady=10, sticky="nsew")
+panel_registros.columnconfigure(0, weight=1)
+panel_registros.rowconfigure(0, weight=1)
+panel_registros.rowconfigure(1, weight=1)
 
-#-------------BOTONES TEMPERATURA-----------------
+FicherosFrame = tk.LabelFrame(panel_registros, text="Ficheros de registro", font=("Courier", 14, "bold"))
+FicherosFrame.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+FicherosFrame.columnconfigure((0, 1, 2, 3), weight=1)
+tk.Button(FicherosFrame, text="Registro de comandos", bg='purple', fg="white", font=("Arial", 14), command=PopUpComandosClick).grid(row=0, column=0, padx=8, pady=8, sticky="nsew")
+tk.Button(FicherosFrame, text="Registro de alarmas", bg='red', fg="white", font=("Arial", 14), command=PopUpAlarmasClick).grid(row=0, column=1, padx=8, pady=8, sticky="nsew")
+tk.Button(FicherosFrame, text="Registro de observaciones", bg='pink', fg="white", font=("Arial", 14), command=PopUpObservacionesClick).grid(row=0, column=2, padx=8, pady=8, sticky="nsew")
+tk.Button(FicherosFrame, text="Registro de temperaturas", bg='orange', fg="white", font=("Arial", 14), command=PopUpTemperaturasClick).grid(row=0, column=3, padx=8, pady=8, sticky="nsew")
 
-BotonesTemperatura = tk.LabelFrame(window, text="BOTONES TEMPERATURA", font=("Courier", 17, "bold"))
-BotonesTemperatura.grid(row=1, column=0, columnspan=3, padx=3, pady=3, sticky=N + S + E + W)
+ObservacionesFrame = tk.LabelFrame(panel_registros, text="Registro de observaciones (SOLO PERSONAL AUTORIZADO)", font=("Courier", 14, "bold"))
+ObservacionesFrame.grid(row=1, column=0, padx=5, pady=5, sticky="nsew")
+ObservacionesFrame.columnconfigure((0, 1, 2), weight=1)
+ObservacionesLabel = Label(ObservacionesFrame, text="Observación a registrar:", font=("Courier", 11))
+ObservacionesLabel.grid(row=0, column=0, padx=5, pady=8, sticky="e")
+ObservacionesEntry = tk.Entry(ObservacionesFrame, font=("Courier", 11))
+ObservacionesEntry.grid(row=0, column=1, padx=5, pady=8, sticky="we")
+tk.Button(ObservacionesFrame, text="Registrar", bg='blue', fg="white", command=RegistrarObservacion).grid(row=0, column=2, padx=5, pady=8, sticky="we")
 
-BotonesTemperatura.grid_rowconfigure(0, weight=1)
-BotonesTemperatura.grid_columnconfigure(0, weight=1)
-BotonesTemperatura.grid_columnconfigure(1, weight=1)
-BotonesTemperatura.grid_columnconfigure(2, weight=1)
-
-# Botones de control (Inicio, Parar, Reanudar, cambiar donde calcula T)
-InicioButtonTemp = Button(BotonesTemperatura, text="Inicio", bg='green', fg="white",font=("Arial",20), command=InicioClick)
-InicioButtonTemp.grid(row=0, column=0, padx=1, pady=1, sticky=N + S + E + W)
-
-PararButtonTemp = Button(BotonesTemperatura, text="Parar", bg='red', fg="white", font=("Arial",20), command=PararClick)
-PararButtonTemp.grid(row=0, column=1, padx=1, pady=1, sticky=N + S + E + W)
-ReanudarButtonTemp = Button(BotonesTemperatura, text="Reanudar", bg='orange', fg="white", font=("Arial",20), command=ReanudarClick)
-ReanudarButtonTemp.grid(row=0, column=2, padx=1, pady=1, sticky=N + S + E + W)
-
-#-------------BOTONES RADAR-----------------
-
-BotonesRadar = tk.LabelFrame(window, text="BOTONES RADAR", font=("Courier", 17, "bold"))
-BotonesRadar.grid(row=4, column=0, columnspan=3, padx=3, pady=3, sticky=N + S + E + W)
-
-BotonesRadar.grid_rowconfigure(0, weight=1)
-BotonesRadar.grid_columnconfigure(0, weight=1)
-BotonesRadar.grid_columnconfigure(1, weight=1)
-
-InicioButtonRad = Button(BotonesRadar, text="Inicio", bg='green', fg="white",font=("Arial",20), command=InicioClickRad)
-InicioButtonRad.grid(row=0, column=0, padx=1, pady=1, sticky=N + S + E + W)
-
-PararButtonRad = Button(BotonesRadar, text="Parar", bg='red', fg="white", font=("Arial",20), command=PararClickRad)
-PararButtonRad.grid(row=0, column=1, padx=1, pady=1, sticky=N + S + E + W)
-
-#Etiquitas para ver en tiempo real la media de temperatura
-mediaLabel = Label(window, text="Media T: --- °C", font=("Courier", 18), fg="blue")
-mediaLabel.grid(row=3, column=2, padx=5, pady=5, ipady=0, sticky=N + E + W)
-
-calculomediaLabel = Label(window, text="Calculando media en:\n ---", font=("Courier", 15), fg="black")
-calculomediaLabel.grid(row=3, column=2, padx=5, pady=5, ipady=0,sticky=S + E + W)
-
-ModoButton = Button(window, text="Calcular media \ntemperatura \nen Satélite", bg='purple', fg='white', font=("Arial",20), width=13, command=CalcularMediaTSat)
-ModoButton.grid(row=3, column=0, rowspan=1, padx=1, pady=1, sticky=N + S + E + W)
-
-ModoButton = Button(window, text="Calcular media \ntemperatura \nen Estación Tierra", bg='purple', fg='white', font=("Arial",20), width=13,command=CalcularMediaTTER)
-ModoButton.grid(row=3, column=1, rowspan=1, padx=1, pady=1, sticky=N + S + E + W)
-
-# Cambiar periodo
-periodoFrame = tk.LabelFrame(window, text="Configuración del Período (ms)", font=("Courier", 14, "bold"))
-periodoFrame.grid(row=2, column=0, columnspan=3, padx=3, pady=3, sticky=N + S + E + W)
-
-periodoLabel = Label(periodoFrame, text="Período (milisegundos):", font=("Courier", 10))
-periodoLabel.pack(side=LEFT, padx=5, pady=5)
-
-periodoEntry = tk.Entry(periodoFrame, font=("Courier", 10), width=15)
-periodoEntry.insert(0, "3000")  # Valor por defecto
-periodoEntry.pack(side=LEFT, padx=5, pady=5)
-
-EnviarButton = Button(periodoFrame, text="Enviar Período", bg='blue', fg="white", command=EnviarPeriodoClick)
-EnviarButton.pack(side=LEFT, padx=5, pady=5)
-
-infoLabel = Label(periodoFrame, text="(Ej: 1000 ms = 1 segundo)", font=("Courier", 9, "italic"))
-infoLabel.pack(side=LEFT, padx=5, pady=5)
-
-# Servomotor y ultrasonidos
-ControlRadarFrame = tk.LabelFrame(window, text="Control Radar", font=("Courier", 11, "bold"))
-ControlRadarFrame.grid(row=5, column=3, rowspan=2, columnspan=3, padx=3, pady=3, sticky=N + S + E + W)
-ControlRadarFrame.columnconfigure(0, weight=1) #Dentro del frame hacemos 2 columnas y 1 fila
-ControlRadarFrame.columnconfigure(1, weight=1)
-ControlRadarFrame.rowconfigure(0, weight=1)
-
-valor_servo = tk.IntVar(value=90)  # Valor inicial en 90 grados
-control_deslizante = tk.Scale(ControlRadarFrame, from_=0, to=180, orient=tk.HORIZONTAL, resolution=1, variable=valor_servo, length=200, command=EnviarServo) # Configuramos el control deslizante para que vaya de 0 a 180, con una resolución de 1 y lo orientamos horizontalmente
-
-control_deslizante.grid(row=0, column=0, rowspan=1, padx=5, pady=5, sticky=N + S + E + W) #Dentro del frame lo ponemos en la fila 0, columna 0
-
-ModoAutomatico = Button(ControlRadarFrame, text="Radar\nAutomático", bg='blue', fg="white", command=ModoAutomaticoClick)
-ModoAutomatico.grid(row=1, column=0,padx=5, pady=5, sticky=N + S + E + W)
-
-ModoManual = Button(ControlRadarFrame, text="Radar\nManual", bg='orange', fg="white", command=RadarManual)
-ModoManual.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
-
-# Abrir ficheros de eventos
-FicherosFrame = tk.LabelFrame(window, text="Ficheros de registro de eventos", font=("Courier", 14, "bold"))
-FicherosFrame.grid(row=5, column=0, columnspan=3, padx=3, pady=3, sticky=N + S + E + W)
-ComandosButton = Button(FicherosFrame, text="Registro de comandos", bg='purple', fg="white", 
-                        font=("Arial", 15), command=PopUpComandosClick)
-ComandosButton.pack(side=LEFT, padx=10, pady=5, fill="both", expand=True)
-AlarmasButton = Button(FicherosFrame, text="Registro de alarmas", bg='red', fg="white", 
-                         font=("Arial", 15), command=PopUpAlarmasClick)
-AlarmasButton.pack(side=LEFT, padx=10, pady=5, fill="both", expand=True)
-FObservacionesButton = Button(FicherosFrame, text="Registro de observaciones", bg='pink', fg="white", 
-                         font=("Arial", 15), command=PopUpObservacionesClick)
-FObservacionesButton.pack(side=LEFT, padx=10, pady=5, fill="both", expand=True)
-TemperaturasButton = Button(FicherosFrame, text="Registro de temperaturas", bg='orange', fg="white", 
-                         font=("Arial", 15), command=PopUpTemperaturasClick)
-TemperaturasButton.pack(side=LEFT, padx=10, pady=5, fill="both", expand=True)
-
-#Label observaciones
-ObservacionesFrame = tk.LabelFrame(window, text="Registro de obervaciones (SOLO PERSONAL AUTORIZADO)", font=("Courier", 14, "bold"))
-ObservacionesFrame.grid(row=6, column=0, columnspan=3, padx=3, pady=3, sticky=N + S + E + W)
-ObservacionesLabel = Label(ObservacionesFrame, text="Observación a registrar:", font=("Courier", 10))
-ObservacionesLabel.pack(side=LEFT, padx=5, pady=5)
-
-ObservacionesEntry = tk.Entry(ObservacionesFrame, font=("Courier", 10), width=15)
-ObservacionesEntry.pack(side=LEFT, padx=5, pady=5)
-
-EnviarButton = Button(ObservacionesFrame, text="Registrar", bg='blue', fg="white", command=RegistrarObservacion)
-EnviarButton.pack(side=LEFT, padx=5, pady=5)
-
-# Gráfica
-graph_frame = tk.LabelFrame(window, text="Gráfica temperatura en viu", font=("Courier", 15, "italic"))
-graph_frame.grid(row=0, column=3, rowspan=2, columnspan=2,padx=1, pady=1, sticky=N+S+E+W)
-
-radar_frame = tk.LabelFrame(window, text="Radar satélite", font=("Courier", 15, "italic"))
-radar_frame.grid(row=2, column=3, rowspan=3,columnspan=2,padx=1, pady=1, sticky=N+S+E+W)
-
-radar_canvas = Canvas(radar_frame, width=400, height=300, bg='green')
-radar_canvas.pack(fill=tk.BOTH, expand=True)
-
-InicioButtonOrb = Button(window, text="Inicio", bg='green', fg="white",font=("Arial",20), command=mostrar_ventana_orbita)
-InicioButtonOrb.grid(row=0, column=5, padx=1, pady=1, sticky=N + S + E + W)
-
-
-def on_resize(event): #Cada vez que se redimensiona el canvas, recibe un objeto event con información del nuevo tamaño
-    dibujar_radar_base() #Redibuja de cero llamando a esta función
-
-radar_canvas.bind("<Configure>", on_resize) #Cuando se redimensiona el canvas, llama a on_resize
-
-
-canvas = FigureCanvasTkAgg(fig, master=graph_frame)
-canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+# Iniciar hilo para leer datos de posición de órbita
+thread_posicion = threading.Thread(target=hilo_posicion)
+thread_posicion.daemon = True
+thread_posicion.start()
 
 window.mainloop()
