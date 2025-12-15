@@ -11,39 +11,57 @@
 ## 📁 Estructura del Proyecto
 ### 🔌 Conexiones
 
-#### Satélite
-- DHT11 → Pin 2
-- Servo → Pin 3
-- HC-SR04 TRIG → Pin 9 | ECHO → Pin 6
-- LED Envío → Pin 4 | LED Error → Pin 7
-- RX (SoftSerial) → Pin 10 | TX → Pin 11
+#### Satélite (Arduino)
+- **DHT11** → Pin 2 (Temperatura & Humedad)
+- **Servomotor** → Pin 3 (Radar rotatorio)
+- **HC-SR04 TRIG** → Pin 9 | **ECHO** → Pin 6 (Sensor de distancia)
+- **LED Envío** → Pin 4 | **LED Error** → Pin 7 (Indicadores de estado)
+- **SoftwareSerial RX** → Pin 10 | **TX** → Pin 11 (Comunicación con Tierra)
 
-#### Estación de Tierra
-- LED Recepción → Pin 2
-- LED Comunicación → Pin 7
-- LED Error Datos → Pin 4
-- RX (SoftSerial) → Pin 10 | TX → Pin 11
+#### Estación de Tierra (Arduino)
+- **LED Recepción** → Pin 2
+- **LED Comunicación** → Pin 7
+- **LED Error Datos** → Pin 4
+- **LED Temp Max** → Pin 8 (Nuevo - indica alerta de temperatura)
+- **SoftwareSerial RX** → Pin 10 | **TX** → Pin 11 (Comunicación con Satélite)
 
 ---
 
 ### 🚀 Funcionamiento
 
 #### Protocolo de Comunicación
-| Código | Función | Formato |
-|--------|---------|---------|
-| 1 | Datos Temp/Hum | `1:temperatura:humedad` |
-| 2 | Sensor Distancia | `2:distancia:angulo` |
-| 3 | Control | `3:inicio/parar/reanudar` |
-| 4 | Cambiar Período | `4:milisegundos` |
-| 0 | Error | `0:tipoError` |
+| Código | Función | Formato | Origen |
+|--------|---------|---------|--------|
+| 0 | Error | `0:tipoError:checksum` | Satélite/Tierra |
+| 1 | Datos Temp/Hum | `1:temperatura:humedad:checksum` | Satélite |
+| 2 | Sensor Distancia | `2:distancia:angulo:checksum` | Satélite |
+| 3 | Control/Órdenes | `3:inicio/parar/reanudar/RadarManual:valor` | PC → Tierra → Satélite |
+| 4 | Media Temperatura | `4:media:TmaxSobrepasada:checksum` | Satélite |
+| 6 | Control Radar | `6:inicio/parar:checksum` | PC → Tierra → Satélite |
+| 9 | Datos de Órbita | `9:tiempo:x:y:z:checksum` | Satélite |
 
 #### Tiempos por Defecto
-- 📊 Envío datos: **3 segundos**
-- 💡 LEDs encendidos: **1 segundo**
-- ⏱️ Timeout comunicación: **7 segundos**
+- 📊 **Envío datos**: 5 segundos
+- 💡 **LEDs encendidos**: 1 segundo
+- ⏱️ **Timeout comunicación**: 7 segundos
+- 🔄 **Período mínimo error**: 15 segundos
+- 🛰️ **Actualización órbita**: 10 segundos (con compresión 90x)
+
+### 🔐 Validación de Datos
+El protocolo incluye **checksum simple**:
+- Suma de bytes de todos los caracteres antes del separador final
+- Formato: `codigo:datos:checksum`
+- Recalculado en recepción para verificar integridad
+- Mensajes corrupto se ignoran silenciosamente
 
 ## 📝 Notas Importantes
 
 - La interfaz Python requiere ajustar el puerto COM a la estación de tierra (`COM5` por defecto)
-- Python requiere: pip install pyserial matplotlib
-- Arduino requiere: Libreria: DHT.h
+- **Python requiere**: `pip install pyserial matplotlib`
+- **Arduino requiere**: Librería `DHT.h` (incluida en Arduino IDE)
+- El satélite envía datos con checksum, la Tierra los verifica y reenvía sin checksum al PC
+- Los LEDs ofrecen realimentación visual del estado del sistema
+- Período configurable en tiempo real desde la interfaz Python
+- Máximo de datos en gráfica de temperatura: últimos 100 puntos
+- Las medias de temperatura usan últimos 10 valores
+- Alerta de temperatura máxima (32°C) activable en satélite o estación
