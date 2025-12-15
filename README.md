@@ -3,9 +3,9 @@
 ![Grupo 2](imagendelgrupo2superrealista100x100realnofake.jpg)
 
 ## Videos explicativos
-- Versión 1: https://youtu.be/9xndj4gOBC0
-- Versión 2: https://youtu.be/yomSmsEQIq0
-- Versión 3: https://youtu.be/3UmEwXSwEw4
+- Versión 1:       [![Watch video](https://img.youtube.com/vi/9xndj4gOBC0/0.jpg)](https://www.youtube.com/watch?v=9xndj4gOBC0)    https://youtu.be/9xndj4gOBC0
+- Versión 2:       [![Watch video](https://img.youtube.com/vi/yomSmsEQIq0/0.jpg)](https://www.youtube.com/watch?v=yomSmsEQIq0)    https://youtu.be/yomSmsEQIq0
+- Versión 3:       [![Watch video](https://img.youtube.com/vi/3UmEwXSwEw4/0.jpg)](https://www.youtube.com/watch?v=3UmEwXSwEw4)    https://youtu.be/3UmEwXSwEw4
 
 ---
 
