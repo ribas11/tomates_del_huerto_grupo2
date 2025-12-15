@@ -7,15 +7,6 @@
 - Versión 2:       [![Watch video](https://img.youtube.com/vi/yomSmsEQIq0/0.jpg)](https://www.youtube.com/watch?v=yomSmsEQIq0)    https://youtu.be/yomSmsEQIq0
 - Versión 3:       [![Watch video](https://img.youtube.com/vi/3UmEwXSwEw4/0.jpg)](https://www.youtube.com/watch?v=3UmEwXSwEw4)    https://youtu.be/3UmEwXSwEw4
 
----
-
-## 📋 Descripción
-
-Proyecto IoT que implementa una comunicación bidireccional entre dos Arduino mediante comunicación serial:
-- **Satélite (Arduino 1)**: Adquiere datos de temperatura/humedad (DHT11) y controla un servomotor
-- **Estación de Tierra (Arduino 2)**: Recibe los datos y controla la comunicación
-- **Interfaz (Python)**: Visualiza los datos en tiempo real con gráficas dinámicas
-
 
 ## 📁 Estructura del Proyecto
 ### 🔌 Conexiones
