@@ -1,4 +1,4 @@
-# 🛰️ BIENVENIDO AL MEJOR PROYECTO JAMAS VISTO!
+# 🛰️ BIENVENIDO AL MEJOR PROYECTO JAMÁS VISTO!
 
 ![Grupo 2](imagendelgrupo2superrealista100x100realnofake.jpg)
 
