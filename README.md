@@ -13,7 +13,7 @@
 
 #### Satélite (Arduino)
 - **DHT11** → Pin 2 (Temperatura & Humedad)
-- **Servomotor** → Pin 3 (Radar rotatorio)
+- **Servomotor** → Pin 3 
 - **HC-SR04 TRIG** → Pin 9 | **ECHO** → Pin 6 (Sensor de distancia)
 - **LED Envío** → Pin 4 | **LED Error** → Pin 7 (Indicadores de estado)
 - **SoftwareSerial RX** → Pin 10 | **TX** → Pin 11 (Comunicación con Tierra)
@@ -22,7 +22,7 @@
 - **LED Recepción** → Pin 2
 - **LED Comunicación** → Pin 7
 - **LED Error Datos** → Pin 4
-- **LED Temp Max** → Pin 8 (Nuevo - indica alerta de temperatura)
+- **LED Temp Max** → Pin 8 (Alerta de temperatura máxima)
 - **SoftwareSerial RX** → Pin 10 | **TX** → Pin 11 (Comunicación con Satélite)
 
 ---
@@ -44,7 +44,6 @@
 - 📊 **Envío datos**: 5 segundos
 - 💡 **LEDs encendidos**: 1 segundo
 - ⏱️ **Timeout comunicación**: 7 segundos
-- 🔄 **Período mínimo error**: 15 segundos
 - 🛰️ **Actualización órbita**: 10 segundos (con compresión 90x)
 
 ### 🔐 Validación de Datos
