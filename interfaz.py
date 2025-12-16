@@ -338,7 +338,7 @@ def hilo_posicion():
 # device = 'COM7'
 # mySerial = serial.Serial(device, 9600)
 
-device = "COM7"
+device = "COM5"
 try:
     mySerial = serial.Serial(device, 9600)
 except:
@@ -420,7 +420,7 @@ def registrar_evento(tipo_comando, detalles=""):
     }   
     # Escribir en el archivo correspondiente
     if tipo_comando in archivos:
-        with open(archivos[tipo_comando], "a") as f:  # "a" = append (añadir)
+        with open(archivos[tipo_comando], "a", encoding="utf-8") as f:  # "a" = append (añadir)
             f.write(f"{fecha_hora} {detalles}\n")
             f.flush()
 def PopUp(fichero):
