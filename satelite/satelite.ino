@@ -144,6 +144,7 @@ void loop(){
       }
       else if (orden == "parar") {
         enviardatos = false;
+        fallodatos = false;
       }
       else if (orden == "MediaSAT") {
         calcularMtemperatura = true;
@@ -274,6 +275,7 @@ void loop(){
       }
     }
   }
+<<<<<<< Updated upstream
   else if ((millis() >= nextMillis2) && (fallodatos == true)){
   digitalWrite(LedDatos, HIGH); // Enciende LED de error
   String mensajeErrorDatos = "0:ErrorCapturaDatos";
@@ -281,6 +283,15 @@ void loop(){
   mySerial.print(mensajeErrorDatos);
   mySerial.print(":");
   mySerial.println(checksumErrorDatos);
+=======
+  else if ((millis() >= nextMillis2) && (fallodatos == true) && (enviardatos == true)){
+    digitalWrite(LedDatos, HIGH); // Enciende LED de error
+    String mensajeErrorDatos = "0:ErrorCapturaDatos";
+    uint8_t checksumErrorDatos = calcularChecksum(mensajeErrorDatos);
+    mySerial.print(mensajeErrorDatos);
+    mySerial.print(":");
+    mySerial.println(checksumErrorDatos);
+>>>>>>> Stashed changes
   }
 
   if ((modoAutomatico == true) && (millis() >= nextServoMotor)) {
@@ -336,7 +347,7 @@ void loop(){
   }
 }
 
-void simulate_orbit(unsigned long millis, double inclination, int ecef) {
+void simulate_orbit(unsigned long millis, double inclination, int ecef){
   double time = (millis / 1000.0) * TIME_COMPRESSION;  // Real orbital time
   double angle = 2 * PI * (time / real_orbital_period);  // Angle in radians
   double x = r * cos(angle);  // X-coordinate (meters)
@@ -367,3 +378,4 @@ void simulate_orbit(unsigned long millis, double inclination, int ecef) {
     mySerial.println(checksumOrbita);
   }
 }
+
