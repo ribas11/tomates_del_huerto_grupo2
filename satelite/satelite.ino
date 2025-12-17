@@ -65,7 +65,7 @@ const double R_EARTH = 6371000;  // Radius of Earth (meters)
 const double ALTITUDE = 400000;  // Altitude of satellite above Earth's surface (meters)
 const double EARTH_ROTATION_RATE = 7.2921159e-5;  // Earth's rotational rate (radians/second)
 const unsigned long MILLIS_BETWEEN_UPDATES = 10000; // Time in milliseconds between each orbit simulation update
-const double  TIME_COMPRESSION = 90.0; // Time compression factor (90x)
+const double  TIME_COMPRESSION = 20.0; // Time compression factor (90x)
 
 // Variables orbita satelite
 unsigned long nextUpdate; // Time in milliseconds when the next orbit simulation update should occur
