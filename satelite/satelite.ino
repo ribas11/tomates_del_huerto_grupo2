@@ -275,15 +275,7 @@ void loop(){
       }
     }
   }
-<<<<<<< Updated upstream
-  else if ((millis() >= nextMillis2) && (fallodatos == true)){
-  digitalWrite(LedDatos, HIGH); // Enciende LED de error
-  String mensajeErrorDatos = "0:ErrorCapturaDatos";
-  uint8_t checksumErrorDatos = calcularChecksum(mensajeErrorDatos);
-  mySerial.print(mensajeErrorDatos);
-  mySerial.print(":");
-  mySerial.println(checksumErrorDatos);
-=======
+
   else if ((millis() >= nextMillis2) && (fallodatos == true) && (enviardatos == true)){
     digitalWrite(LedDatos, HIGH); // Enciende LED de error
     String mensajeErrorDatos = "0:ErrorCapturaDatos";
@@ -291,7 +283,6 @@ void loop(){
     mySerial.print(mensajeErrorDatos);
     mySerial.print(":");
     mySerial.println(checksumErrorDatos);
->>>>>>> Stashed changes
   }
 
   if ((modoAutomatico == true) && (millis() >= nextServoMotor)) {
@@ -378,4 +369,5 @@ void simulate_orbit(unsigned long millis, double inclination, int ecef){
     mySerial.println(checksumOrbita);
   }
 }
+
 

@@ -328,7 +328,7 @@ def hilo_posicion():
             time.sleep(0.5)
 
 
-device = "COM7"
+device = "COM5"
 try:
     mySerial = serial.Serial(device, 9600)
 except:
